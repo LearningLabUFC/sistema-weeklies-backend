@@ -52,22 +52,16 @@ pip install -r requirements.txt
 
 ### 4. Configurar variáveis de ambiente
 
-O arquivo **`.env`** já está incluído na raiz do projeto. Revise os valores e ajuste conforme necessário:
+Copie o arquivo de exemplo e preencha com os seus valores:
 
-```dotenv
-POSTGRES_USER=weeklies_user
-POSTGRES_PASSWORD=weeklies_secret
-POSTGRES_DB=weeklies_db
-POSTGRES_PORT=5432
-
-DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
-
-SECRET_KEY=troque-por-uma-chave-segura-em-producao
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+```bash
+cp .env.example .env
 ```
 
-> **Nota:** o `.env` já está listado no `.gitignore` — nunca versione credenciais.
+Edite o `.env` gerado e substitua os placeholders — em especial `POSTGRES_PASSWORD` e `SECRET_KEY`.
+
+> **Nota:** o `.env` está listado no `.gitignore` — nunca versione credenciais.  
+> Para gerar uma `SECRET_KEY` segura: `python -c "import secrets; print(secrets.token_urlsafe(64))"`
 
 ### 5. Subir o PostgreSQL com Docker
 
@@ -124,6 +118,7 @@ sistema-weeklies-backend/
 │   ├── services/         # Regras de negócio
 │   └── utils/            # Helpers (hashing, JWT, etc.)
 ├── .env                  # Variáveis de ambiente (não versionado)
+├── .env.example          # Modelo de variáveis de ambiente (versionado)
 ├── .gitignore
 ├── alembic.ini
 ├── requirements.txt
