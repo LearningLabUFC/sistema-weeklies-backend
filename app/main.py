@@ -4,6 +4,7 @@ Entrypoint da aplicação FastAPI.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth, users
 
@@ -24,6 +25,17 @@ app = FastAPI(
         "url": "https://learninglab.com.br/",
     },
 )
+
+# ── Configuração de CORS ─────────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ── Routers ──────────────────────────────────────────────────
 
