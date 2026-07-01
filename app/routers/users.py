@@ -25,6 +25,7 @@ router = APIRouter(
 # ── Dados mockados reutilizáveis ─────────────────────────────
 
 _MOCK_USUARIO = UsuarioCompleto(
+    id=UUID("a1b2c3d4-5678-9012-abcd-ef1234567890"),
     nome_completo="João Silva",
     email="joao@exemplo.com",
     matricula="512345",
@@ -34,6 +35,7 @@ _MOCK_USUARIO = UsuarioCompleto(
     foto_perfil="avatar_padrao.png",
     curso_id=UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
     status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
+    global_role=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
 )
 
 
