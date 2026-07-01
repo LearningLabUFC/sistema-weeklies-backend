@@ -12,10 +12,14 @@ from fastapi import APIRouter
 
 from app.schemas import (
     AuthTokenResponse,
+    ChangePasswordRequest,
+    DeleteAccountRequest,
     ErroPadrao,
     ForgotPasswordRequest,
     LoginRequest,
     MensagemResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
     RegisterRequest,
     ResetPasswordRequest,
     UsuarioCompleto,
@@ -31,6 +35,7 @@ router = APIRouter(
 # ── Dados mockados reutilizáveis ─────────────────────────────
 
 _MOCK_USUARIO = UsuarioCompleto(
+    id=UUID("a1b2c3d4-5678-9012-abcd-ef1234567890"),
     nome_completo="João Silva",
     email="joao@exemplo.com",
     matricula="512345",
@@ -40,6 +45,7 @@ _MOCK_USUARIO = UsuarioCompleto(
     foto_perfil="avatar_padrao.png",
     curso_id=UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
     status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
+    global_role=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
 )
 
 
@@ -272,3 +278,176 @@ async def reset_password(body: ResetPasswordRequest) -> MensagemResponse:
     return MensagemResponse(
         mensagem="Sua senha foi redefinida com sucesso. Você já pode realizar o login.",
     )
+
+
+# ── POST /auth/logout ───────────────────────────────────────
+
+@router.post(
+    "/logout",
+    response_model=MensagemResponse,
+    status_code=200,
+    summary="Encerrar sessão do usuário",
+    description=(
+        "Invalida o refresh token do usuário, encerrando a sessão atual. "
+        "O access token continua válido até expirar, mas o frontend deve "
+        "descartá-lo do estado local."
+    ),
+    responses={
+        401: {
+            "description": "Token de acesso ausente ou inválido.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "naoAutenticado": {
+                            "summary": "Não autenticado",
+                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+async def logout_user() -> MensagemResponse:
+    return MensagemResponse(
+        mensagem="Sessão encerrada com sucesso.",
+    )
+
+
+# ── POST /auth/refresh ──────────────────────────────────────
+
+@router.post(
+    "/refresh",
+    response_model=RefreshTokenResponse,
+    status_code=200,
+    summary="Renovar token de acesso",
+    description=(
+        "Recebe o refresh token atual e retorna um novo par de tokens "
+        "(access + refresh). Implementa rotação de tokens para maior segurança."
+    ),
+    responses={
+        401: {
+            "description": "Refresh token inválido, expirado ou já utilizado.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "tokenExpirado": {
+                            "summary": "Token expirado",
+                            "value": {"mensagem": "O refresh token expirou. Faça login novamente."},
+                        },
+                        "tokenInvalido": {
+                            "summary": "Token inválido",
+                            "value": {"mensagem": "Refresh token inválido ou já utilizado."},
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+async def refresh_token(body: RefreshTokenRequest) -> RefreshTokenResponse:
+    return RefreshTokenResponse(
+        mensagem="Token renovado com sucesso.",
+        token_acesso="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...novoToken",
+        tipo_token="bearer",
+        token_atualizacao="ghi78900novoRefreshToken...",
+    )
+
+
+# ── PUT /auth/change-password ───────────────────────────────
+
+@router.put(
+    "/change-password",
+    response_model=MensagemResponse,
+    status_code=200,
+    summary="Alterar senha (autenticado)",
+    description=(
+        "Permite que um usuário autenticado altere sua senha atual. "
+        "Exige a senha atual para confirmação e valida os requisitos "
+        "mínimos de segurança da nova senha."
+    ),
+    responses={
+        400: {
+            "description": "A nova senha não atende aos requisitos mínimos.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "senhaFraca": {
+                            "summary": "Senha fraca",
+                            "value": {"mensagem": "A nova senha deve conter no mínimo 8 caracteres, incluindo números e símbolos."},
+                        },
+                        "senhaIgual": {
+                            "summary": "Senha igual à anterior",
+                            "value": {"mensagem": "A nova senha deve ser diferente da senha atual."},
+                        },
+                    },
+                },
+            },
+        },
+        401: {
+            "description": "Senha atual incorreta ou token de acesso inválido.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "senhaIncorreta": {
+                            "summary": "Senha atual incorreta",
+                            "value": {"mensagem": "A senha atual informada está incorreta."},
+                        },
+                        "naoAutenticado": {
+                            "summary": "Não autenticado",
+                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+async def change_password(body: ChangePasswordRequest) -> MensagemResponse:
+    return MensagemResponse(
+        mensagem="Senha alterada com sucesso.",
+    )
+
+
+# ── DELETE /auth/account ────────────────────────────────────
+
+@router.delete(
+    "/account",
+    response_model=MensagemResponse,
+    status_code=200,
+    summary="Excluir conta do usuário",
+    description=(
+        "Remove permanentemente a conta do usuário autenticado. "
+        "Exige a senha atual como confirmação para evitar exclusões "
+        "acidentais. Esta ação é irreversível."
+    ),
+    responses={
+        401: {
+            "description": "Senha de confirmação incorreta ou token inválido.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "senhaIncorreta": {
+                            "summary": "Senha incorreta",
+                            "value": {"mensagem": "A senha informada está incorreta. A conta não foi excluída."},
+                        },
+                        "naoAutenticado": {
+                            "summary": "Não autenticado",
+                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+async def delete_account(body: DeleteAccountRequest) -> MensagemResponse:
+    return MensagemResponse(
+        mensagem="Sua conta foi excluída permanentemente.",
+    )
+
