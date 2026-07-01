@@ -33,6 +33,11 @@ class UsuarioCompleto(BaseModel):
     omitindo dados sensíveis como o hash da senha.
     """
 
+    id: UUID = Field(
+        ...,
+        description="Identificador único (UUID) do usuário.",
+        examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+    )
     nome_completo: str = Field(
         ...,
         description="Nome completo do usuário.",
@@ -76,6 +81,11 @@ class UsuarioCompleto(BaseModel):
         description="ID referencial do status global.",
         examples=["1fa85f64-5717-4562-b3fc-2c963f66afa1"],
     )
+    global_role: UUID = Field(
+        ...,
+        description="ID referencial do papel global do usuário (aluno, coordenador, admin).",
+        examples=["1fa85f64-5717-4562-b3fc-2c963f66afa1"],
+    )
 
 
 # ────────────────────────────────────────────
@@ -112,6 +122,11 @@ class RegisterRequest(BaseModel):
         ...,
         description="UUID do curso acadêmico do aluno.",
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+    )
+    metas_horas_semanais: int = Field(
+        ...,
+        description="Horas obrigatórias trabalhadas na semana",
+        examples=[12]
     )
 
 
@@ -219,3 +234,94 @@ class VerifyCodeResponse(BaseModel):
         description="Token temporário para redefinição de senha.",
         examples=["abc123xyz890tokenTemporario"],
     )
+
+
+# ────────────────────────────────────────────
+# Auth — Rotas adicionais (M2)
+# ────────────────────────────────────────────
+
+class RefreshTokenRequest(BaseModel):
+    """Body para POST /auth/refresh."""
+
+    token_atualizacao: str = Field(
+        ...,
+        description="Refresh token obtido no login ou registro.",
+        examples=["def50200543e332..."],
+    )
+
+
+class RefreshTokenResponse(BaseModel):
+    """Resposta de sucesso para POST /auth/refresh."""
+
+    mensagem: str = Field(
+        ...,
+        examples=["Token renovado com sucesso."],
+    )
+    token_acesso: str = Field(
+        ...,
+        description="Novo token JWT de acesso.",
+        examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...novoToken"],
+    )
+    tipo_token: str = Field(
+        ...,
+        examples=["bearer"],
+    )
+    token_atualizacao: str = Field(
+        ...,
+        description="Novo refresh token (rotação de tokens).",
+        examples=["ghi78900novoRefreshToken..."],
+    )
+
+
+class ChangePasswordRequest(BaseModel):
+    """Body para PUT /auth/change-password."""
+
+    senha_atual: str = Field(
+        ...,
+        description="Senha atual do usuário para confirmação.",
+        examples=["SenhaForte123!"],
+    )
+    nova_senha: str = Field(
+        ...,
+        description="Nova senha que substituirá a atual.",
+        examples=["NovaSenhaSegura2026!"],
+    )
+
+
+class DeleteAccountRequest(BaseModel):
+    """Body para DELETE /auth/account."""
+
+    senha: str = Field(
+        ...,
+        description="Senha atual para confirmar a exclusão da conta.",
+        examples=["SenhaForte123!"],
+    )
+
+
+# ────────────────────────────────────────────
+# Users — Perfil do usuário (M2)
+# ────────────────────────────────────────────
+
+class UpdateProfileRequest(BaseModel):
+    """Body para PUT /users/me."""
+
+    nome_completo: str | None = Field(
+        None,
+        description="Novo nome completo do usuário.",
+        examples=["João Pedro Silva"],
+    )
+    foto_perfil: str | None = Field(
+        None,
+        description="Novo caminho ou URL da foto de perfil.",
+        examples=["avatar_joao_2026.png"],
+    )
+
+
+class UsuarioPerfilResponse(BaseModel):
+    """Resposta para GET /users/me e PUT /users/me."""
+
+    mensagem: str = Field(
+        ...,
+        examples=["Perfil obtido com sucesso."],
+    )
+    usuario: UsuarioCompleto

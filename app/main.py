@@ -5,7 +5,7 @@ Entrypoint da aplicação FastAPI.
 
 from fastapi import FastAPI
 
-from app.routers import auth
+from app.routers import auth, users
 
 app = FastAPI(
     title="Sistema de Gestão LL",
@@ -28,6 +28,7 @@ app = FastAPI(
 # ── Routers ──────────────────────────────────────────────────
 
 app.include_router(auth.router)
+app.include_router(users.router)
 
 
 # ── Health check ─────────────────────────────────────────────
