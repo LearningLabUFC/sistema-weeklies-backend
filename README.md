@@ -63,42 +63,19 @@ Edite o `.env` gerado e substitua os placeholders — em especial `POSTGRES_PASS
 > **Nota:** o `.env` está listado no `.gitignore` — nunca versione credenciais.  
 > Para gerar uma `SECRET_KEY` segura: `python -c "import secrets; print(secrets.token_urlsafe(64))"`
 
-### 5. Subir o PostgreSQL com Docker
+### 5. Iniciar a aplicação (Modo Automatizado)
+
+Para facilitar o desenvolvimento local, foi criado um script unificado que inicializa o banco de dados Docker, aplica as migrações do Alembic e sobe a API. Basta rodar:
 
 ```bash
-docker run -d \
-  --name weeklies-postgres \
-  -e POSTGRES_USER=weeklies_user \
-  -e POSTGRES_PASSWORD=weeklies_secret \
-  -e POSTGRES_DB=weeklies_db \
-  -p 5432:5432 \
-  -v weeklies_pgdata:/var/lib/postgresql/data \
-  postgres:15-alpine
+python run.py
 ```
 
-> O volume nomeado `weeklies_pgdata` garante que os dados persistam entre reinícios do container.
+* **API**: [http://localhost:8000](http://localhost:8000)
+* **Documentação (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Health Check**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
-### 6. Rodar as migrações (Alembic)
-
-```bash
-# Inicializar o Alembic (apenas na primeira vez, se ainda não houver pasta alembic/)
-alembic init alembic
-
-# Gerar uma migration a partir dos modelos
-alembic revision --autogenerate -m "initial schema"
-
-# Aplicar as migrações
-alembic upgrade head
-```
-
-### 7. Iniciar o servidor de desenvolvimento
-
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-A API estará disponível em **http://localhost:8000**.  
-A documentação interativa (Swagger UI) estará em **http://localhost:8000/docs**.
+*(Ao fechar a aplicação com `Ctrl+C`, os containers do Docker serão finalizados automaticamente).*
 
 ---
 
