@@ -61,3 +61,16 @@ A segurança de credenciais utiliza a biblioteca **`bcrypt`** de forma direta:
 A rota de health check foi configurada no endpoint `/api/health` e implementa:
 * **Validação do Servidor**: Retorna se o servidor FastAPI está operacional.
 * **Validação do Banco de Dados**: Executa uma query de teste simples (`SELECT 1`). Caso o banco esteja fora do ar, o endpoint responde com status HTTP `503 Service Unavailable` e detalha a desconexão no JSON de retorno.
+
+---
+
+## 7. Script de Inicialização Automatizado (`run.py`)
+
+Para unificar o setup de desenvolvimento local entre diferentes sistemas operacionais (Windows, macOS e Linux), foi criado o script helper `run.py` na raiz do projeto.
+
+Ao executar `python run.py`:
+1. **Docker Compose**: O script detecta a versão do Docker Compose instalada (`docker compose` ou `docker-compose`) e sobe os containers do PostgreSQL e pgAdmin em segundo plano (`up -d`).
+2. **Aguardar DB**: Aguarda alguns segundos para garantir que o PostgreSQL esteja pronto para aceitar conexões.
+3. **Migrations**: Executa automaticamente as migrações do Alembic (`alembic upgrade head`) utilizando o interpretador Python do ambiente virtual ativo.
+4. **FastAPI Server**: Inicia o servidor de desenvolvimento Uvicorn com hot-reload habilitado na porta `8000`.
+5. **Auto-Clean**: Ao encerrar o servidor (com `Ctrl+C`), o script captura o sinal de parada e executa automaticamente `docker compose down` para desligar os containers e liberar os recursos do sistema.
