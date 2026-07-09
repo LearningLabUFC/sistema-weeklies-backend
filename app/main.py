@@ -5,6 +5,10 @@ Entrypoint da aplicação FastAPI.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+
+from app.database import SessionLocal
 
 from app.routers import auth, users
 
@@ -46,11 +50,20 @@ app.include_router(users.router)
 # ── Health check ─────────────────────────────────────────────
 
 @app.get(
-    "/health",
+    "/api/health",
     tags=["Health"],
-    summary="Verifica se a API está no ar",
-    response_description="Status da aplicação",
+    summary="Verifica se a API e o banco de dados estão no ar",
+    response_description="Status da aplicação e conexão com o banco",
 )
 async def health_check():
-    """Retorna o status atual da aplicação."""
-    return {"status": "healthy"}
+    """Retorna o status atual da aplicação e valida a conexão com o banco de dados."""
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "disconnected", "error": str(e)},
+        )
