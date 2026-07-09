@@ -12,7 +12,7 @@ python-dotenv==1.1.0
 
 # Autenticação
 python-jose[cryptography]==3.4.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.3.0
 
 # Validação / schemas
 pydantic[email]==2.11.3

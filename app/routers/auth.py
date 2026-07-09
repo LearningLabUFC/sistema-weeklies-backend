@@ -2,14 +2,17 @@
 Router — Autenticação e Identidade
 
 Endpoints: register, login, forgot-password, verify-code, reset-password.
-Dados mockados para visualização no Swagger.
 """
 
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.database import get_db
+from app.models.user import User
+from app.utils.security import hash_senha
 from app.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -30,22 +33,6 @@ from app.schemas import (
 router = APIRouter(
     prefix="/auth",
     tags=["Autenticação e Identidade"],
-)
-
-# ── Dados mockados reutilizáveis ─────────────────────────────
-
-_MOCK_USUARIO = UsuarioCompleto(
-    id=UUID("a1b2c3d4-5678-9012-abcd-ef1234567890"),
-    nome_completo="João Silva",
-    email="joao@exemplo.com",
-    matricula="512345",
-    data_nascimento=date(2000, 1, 1),
-    data_ingresso=date(2024, 5, 20),
-    meta_horas_semanais=12,
-    foto_perfil="avatar_padrao.png",
-    curso_id=UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
-    status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
-    global_role=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
 )
 
 
@@ -100,13 +87,52 @@ _MOCK_USUARIO = UsuarioCompleto(
         },
     },
 )
-async def register_user(body: RegisterRequest) -> AuthTokenResponse:
+async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
+    # Verificar se e-mail já existe
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=409, detail="Este e-mail já está cadastrado no sistema.")
+
+    # Verificar se matrícula já existe
+    if db.query(User).filter(User.matricula == body.matricula).first():
+        raise HTTPException(status_code=409, detail="Esta matrícula já pertence a outro usuário.")
+
+    # Criar o usuário no banco de dados
+    novo_usuario = User(
+        nome_completo=body.nome_completo,
+        email=body.email,
+        senha_hash=hash_senha(body.senha),
+        matricula=body.matricula,
+        data_nascimento=body.data_nascimento,
+        data_ingresso=date.today(),
+        meta_horas_semanais=body.metas_horas_semanais,
+        foto_perfil="avatar_padrao.png",
+        curso_id=body.curso_id,
+    )
+    db.add(novo_usuario)
+    db.commit()
+    db.refresh(novo_usuario)
+
+    # Montar resposta com os dados do usuário criado
+    usuario_resposta = UsuarioCompleto(
+        id=novo_usuario.id,
+        nome_completo=novo_usuario.nome_completo,
+        email=novo_usuario.email,
+        matricula=novo_usuario.matricula,
+        data_nascimento=novo_usuario.data_nascimento,
+        data_ingresso=novo_usuario.data_ingresso,
+        meta_horas_semanais=novo_usuario.meta_horas_semanais,
+        foto_perfil=novo_usuario.foto_perfil,
+        curso_id=novo_usuario.curso_id,
+        status_id=novo_usuario.status_id or UUID("00000000-0000-0000-0000-000000000000"),
+        global_role=novo_usuario.global_role or UUID("00000000-0000-0000-0000-000000000000"),
+    )
+
     return AuthTokenResponse(
         mensagem="Usuário registrado com sucesso.",
-        token_acesso="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...signature",
+        token_acesso="token-placeholder-implementar-jwt",
         tipo_token="bearer",
-        token_atualizacao="def50200543e332...",
-        usuario=_MOCK_USUARIO,
+        token_atualizacao="refresh-token-placeholder",
+        usuario=usuario_resposta,
     )
 
 
