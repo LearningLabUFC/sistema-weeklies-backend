@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5433
 
     # ── Autenticação JWT ─────────────────────────────────────
     SECRET_KEY: str
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     def DATABASE_URL(self) -> str:
         """Monta a URL de conexão com o PostgreSQL a partir das variáveis individuais."""
         return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
