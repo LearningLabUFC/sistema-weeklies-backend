@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from app.database import SessionLocal
 
-from app.routers import auth, users
+from app.routers import auth, domain, users
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -49,6 +49,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(domain.router)
 
 
 # ── Health check ─────────────────────────────────────────────
@@ -69,5 +70,6 @@ async def health_check():
     except Exception as e:
         return JSONResponse(
             status_code=503,
-            content={"status": "unhealthy", "database": "disconnected", "error": str(e)},
+            content={"status": "unhealthy",
+                     "database": "disconnected", "error": str(e)},
         )
