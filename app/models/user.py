@@ -7,8 +7,9 @@ Campos baseados no schema Pydantic UsuarioCompleto (app/schemas.py).
 
 import uuid
 
-from sqlalchemy import Column, Date, Integer, String
+from sqlalchemy import Column, Date, Integer, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -30,9 +31,13 @@ class User(Base):
 
     # UUIDs referenciais — serão convertidos em ForeignKey
     # quando as tabelas de cursos, status e roles forem criadas.
-    curso_id = Column(UUID(as_uuid=True), nullable=False)
+    curso_id = Column(UUID(as_uuid=True), ForeignKey(
+        "cursos.id"), nullable=False)
     status_id = Column(UUID(as_uuid=True), nullable=True)
     global_role = Column(UUID(as_uuid=True), nullable=True)
+
+    # relacao N para 1
+    curso = relationship("Course", back_populates="usuarios")
 
     def __repr__(self) -> str:
         return f"<User {self.nome_completo} ({self.email})>"
