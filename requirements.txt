@@ -4,7 +4,7 @@ uvicorn[standard]==0.34.2
 
 # ORM e banco de dados
 sqlalchemy==2.0.41
-psycopg2-binary==2.9.10
+psycopg[binary]==3.2.4
 alembic==1.15.2
 
 # Variáveis de ambiente
