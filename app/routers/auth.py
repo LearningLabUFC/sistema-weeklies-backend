@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.utils.security import hash_senha
+from app.utils.security import (
+    hash_senha,
+    verificar_senha,
+    criar_token_acesso,
+    criar_token_atualizacao,
+)
 from app.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -112,6 +117,11 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
     db.commit()
     db.refresh(novo_usuario)
 
+    # Gerar tokens JWT reais
+    token_dados = {"sub": str(novo_usuario.id)}
+    token_acesso = criar_token_acesso(token_dados)
+    token_atualizacao = criar_token_atualizacao(token_dados)
+
     # Montar resposta com os dados do usuário criado
     usuario_resposta = UsuarioCompleto(
         id=novo_usuario.id,
@@ -129,9 +139,9 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
 
     return AuthTokenResponse(
         mensagem="Usuário registrado com sucesso.",
-        token_acesso="token-placeholder-implementar-jwt",
+        token_acesso=token_acesso,
         tipo_token="bearer",
-        token_atualizacao="refresh-token-placeholder",
+        token_atualizacao=token_atualizacao,
         usuario=usuario_resposta,
     )
 
@@ -179,13 +189,42 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         },
     },
 )
-async def login_user(body: LoginRequest) -> AuthTokenResponse:
+async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
+    # Buscar usuário pelo e-mail
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario:
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos. Tente novamente.")
+
+    # Verificar senha contra o hash armazenado
+    if not verificar_senha(body.senha, usuario.senha_hash):
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos. Tente novamente.")
+
+    # Gerar tokens JWT reais
+    token_dados = {"sub": str(usuario.id)}
+    token_acesso = criar_token_acesso(token_dados)
+    token_atualizacao = criar_token_atualizacao(token_dados)
+
+    # Montar resposta com os dados do usuário
+    usuario_resposta = UsuarioCompleto(
+        id=usuario.id,
+        nome_completo=usuario.nome_completo,
+        email=usuario.email,
+        matricula=usuario.matricula,
+        data_nascimento=usuario.data_nascimento,
+        data_ingresso=usuario.data_ingresso,
+        meta_horas_semanais=usuario.meta_horas_semanais,
+        foto_perfil=usuario.foto_perfil,
+        curso_id=usuario.curso_id,
+        status_id=usuario.status_id or UUID("00000000-0000-0000-0000-000000000000"),
+        global_role=usuario.global_role or UUID("00000000-0000-0000-0000-000000000000"),
+    )
+
     return AuthTokenResponse(
         mensagem="Login realizado com sucesso.",
-        token_acesso="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...signature",
+        token_acesso=token_acesso,
         tipo_token="bearer",
-        token_atualizacao="def50200543e332...",
-        usuario=_MOCK_USUARIO,
+        token_atualizacao=token_atualizacao,
+        usuario=usuario_resposta,
     )
 
 
