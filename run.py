@@ -49,8 +49,8 @@ def encontrar_docker_compose():
 def main():
     print("─── [Weeklies Backend] Iniciando ambiente de desenvolvimento ───")
 
-    # 1. Subir os containers Docker (PostgreSQL e pgAdmin)
-    print("\n[1/3] Subindo containers Docker (PostgreSQL)...")
+    # 1. Subir os containers Docker (PostgreSQL, pgAdmin e Redis)
+    print("\n[1/3] Subindo containers Docker (PostgreSQL, Redis)...")
     docker_compose = encontrar_docker_compose()
 
     if docker_compose is None:
@@ -98,7 +98,7 @@ def main():
         # Isso é comportamento normal de encerramento, não um erro real.
         print("\n👋 Servidor finalizado.")
     finally:
-        print("\n🛑 Parando containers Docker (PostgreSQL)...")
+        print("\n🛑 Parando containers Docker (PostgreSQL, Redis)...")
         try:
             executar_comando_shell(docker_compose + ["down"])
             print("✅ Containers parados com sucesso.")
