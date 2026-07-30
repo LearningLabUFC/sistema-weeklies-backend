@@ -165,10 +165,6 @@ async def update_my_profile(
     if body.foto_perfil is not None:
         current_user.foto_perfil = body.foto_perfil
 
-    # Atualizar senha
-    if body.senha is not None and body.senha != "":
-        current_user.senha_hash = hash_senha(body.senha)
-
     db.commit()
     db.refresh(current_user)
 

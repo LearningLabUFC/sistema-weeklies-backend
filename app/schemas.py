@@ -339,11 +339,6 @@ class UpdateProfileRequest(BaseModel):
         description="Novo caminho ou URL da foto de perfil.",
         examples=["avatar_joao_2026.png"],
     )
-    senha: str | None = Field(
-        None,
-        description="Nova senha do usuário (mínimo 8 caracteres).",
-        examples=["NovaSenhaSegura2026!"],
-    )
 
 
 class UsuarioPerfilResponse(BaseModel):
