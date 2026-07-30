@@ -3,6 +3,8 @@ Sistema de Gestão LL — Backend
 Entrypoint da aplicação FastAPI.
 """
 import os
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,11 +12,23 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.database import SessionLocal
+from app.redis import iniciar_redis, encerrar_redis
 
 from app.routers import admin, auth, domain, users
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+
+
+# ── Lifecycle (startup / shutdown) ───────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia recursos assíncronos: Redis."""
+    await iniciar_redis()
+    yield
+    await encerrar_redis()
+
 
 app = FastAPI(
     title="Sistema de Gestão LL",
@@ -24,6 +38,7 @@ app = FastAPI(
         "horas, weeklies, reuniões, setores e dashboard analítico."
     ),
     version="1.0.0",
+    lifespan=lifespan,
     contact={
         "name": "LearningLab",
         "email": "learninglab@ufc.br",
