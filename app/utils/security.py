@@ -6,6 +6,8 @@ hashes de senha de forma segura, e python-jose para criar e
 decodificar tokens JWT.
 """
 
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -52,9 +54,36 @@ def criar_token_atualizacao(dados: dict) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def criar_token_redefinicao(user_id: str) -> str:
+    """
+    Cria um JWT de uso único para redefinição de senha.
+
+    Tem expiração curta (5 minutos) e tipo 'redefinicao'
+    para que não possa ser confundido com tokens de acesso.
+    """
+    payload = {
+        "sub": user_id,
+        "tipo": "redefinicao",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decodificar_token(token: str) -> dict | None:
     """Decodifica e valida um token JWT. Retorna None se inválido ou expirado."""
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+
+
+# ── OTP ──────────────────────────────────────────────────────
+
+def gerar_codigo_otp(tamanho: int = 6) -> str:
+    """
+    Gera um código numérico aleatório de N dígitos para OTP.
+
+    Utiliza ``secrets.choice`` para garantir aleatoriedade
+    criptograficamente segura.
+    """
+    return "".join(secrets.choice(string.digits) for _ in range(tamanho))
