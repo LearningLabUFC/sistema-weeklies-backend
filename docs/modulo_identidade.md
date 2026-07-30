@@ -61,3 +61,16 @@ A partir dessa conta inicial, o gestor poderá fazer login e começar a aprovar 
 
 - **Mudança Voluntária:** A troca de senha deve ser feita obrigatoriamente pela rota `PUT /auth/change-password`. Essa rota foi blindada para exigir que a `senha_atual` correta seja informada.
 - O endpoint genérico de atualização de perfil (`PUT /users/me`) **não processa alterações de senha**, evitando a vulnerabilidade de atualização não autorizada caso uma sessão fique aberta.
+
+## 6. Recuperação de Senha (Esqueci Minha Senha)
+
+O fluxo de recuperação de senha (quando o usuário esquece sua credencial) foi desenhado de forma stateless e sem persistência em banco de dados relacional para tokens temporários.
+
+### Fluxo OTP (One-Time Password) com Redis
+1. **Solicitação (`POST /auth/forgot-password`)**: O usuário informa seu e-mail. A API verifica a existência da conta e gera um código numérico de 6 dígitos (OTP) criptograficamente seguro.
+2. **Armazenamento Volátil**: Este código é salvo exclusivamente no **Redis**, com a chave `otp:{email}` e um TTL (Time-To-Live) de **15 minutos**.
+3. **Verificação (`POST /auth/verify-code`)**: O usuário submete o e-mail e o código recebido. A API consulta o Redis. Se correto, o OTP é **deletado imediatamente** do Redis (garantindo uso único) e um Token JWT de Redefinição (com validade de 5 minutos e tipo especial `redefinicao`) é gerado.
+4. **Redefinição (`POST /auth/reset-password`)**: O usuário submete o Token JWT de Redefinição e a nova senha. A API valida o JWT e, se estiver tudo certo, atualiza o hash no banco PostgreSQL.
+
+**Segurança Adicional:**
+- Para evitar enumeração de usuários (descobrir quais e-mails estão cadastrados), a rota de solicitação de OTP sempre retorna a mesma mensagem de sucesso genérica ("Se o e-mail estiver cadastrado..."), independentemente de o e-mail existir no banco ou não.
