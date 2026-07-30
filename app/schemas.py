@@ -329,6 +329,11 @@ class UpdateProfileRequest(BaseModel):
         description="Novo nome completo do usuário.",
         examples=["João Pedro Silva"],
     )
+    email: EmailStr | None = Field(
+        None,
+        description="Novo endereço de e-mail do usuário.",
+        examples=["joao.novo@exemplo.com"],
+    )
     foto_perfil: str | None = Field(
         None,
         description="Novo caminho ou URL da foto de perfil.",

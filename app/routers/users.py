@@ -2,14 +2,18 @@
 Router — Perfil do Usuário
 
 Endpoints: obter perfil, atualizar perfil.
-Dados mockados para visualização no Swagger.
+Dados reais obtidos do banco de dados via token JWT.
 """
 
-from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.database import get_db
+from app.deps import get_current_user
+from app.models.user import User
+from app.utils.security import hash_senha
 from app.schemas import (
     ErroPadrao,
     UpdateProfileRequest,
@@ -22,21 +26,22 @@ router = APIRouter(
     tags=["Perfil do Usuário"],
 )
 
-# ── Dados mockados reutilizáveis ─────────────────────────────
 
-_MOCK_USUARIO = UsuarioCompleto(
-    id=UUID("a1b2c3d4-5678-9012-abcd-ef1234567890"),
-    nome_completo="João Silva",
-    email="joao@exemplo.com",
-    matricula="512345",
-    data_nascimento=date(2000, 1, 1),
-    data_ingresso=date(2024, 5, 20),
-    meta_horas_semanais=12,
-    foto_perfil="avatar_padrao.png",
-    curso_id=UUID("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
-    status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
-    global_role=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
-)
+def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
+    """Converte o modelo ORM User para o schema Pydantic UsuarioCompleto."""
+    return UsuarioCompleto(
+        id=usuario.id,
+        nome_completo=usuario.nome_completo,
+        email=usuario.email,
+        matricula=usuario.matricula,
+        data_nascimento=usuario.data_nascimento,
+        data_ingresso=usuario.data_ingresso,
+        meta_horas_semanais=usuario.meta_horas_semanais,
+        foto_perfil=usuario.foto_perfil,
+        curso_id=usuario.curso_id,
+        status_id=usuario.status_id or UUID("00000000-0000-0000-0000-000000000000"),
+        global_role=usuario.global_role or UUID("00000000-0000-0000-0000-000000000000"),
+    )
 
 
 # ── GET /users/me ────────────────────────────────────────────
@@ -68,10 +73,12 @@ _MOCK_USUARIO = UsuarioCompleto(
         },
     },
 )
-async def get_my_profile() -> UsuarioPerfilResponse:
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+) -> UsuarioPerfilResponse:
     return UsuarioPerfilResponse(
         mensagem="Perfil obtido com sucesso.",
-        usuario=_MOCK_USUARIO,
+        usuario=_build_usuario_completo(current_user),
     )
 
 
@@ -83,8 +90,9 @@ async def get_my_profile() -> UsuarioPerfilResponse:
     status_code=200,
     summary="Atualizar perfil do usuário logado",
     description=(
-        "Permite que o usuário autenticado atualize seu nome completo "
-        "e/ou foto de perfil. Campos não enviados permanecem inalterados."
+        "Permite que o usuário autenticado atualize seu nome completo, "
+        "e-mail, foto de perfil e/ou senha. Campos não enviados "
+        "permanecem inalterados."
     ),
     responses={
         401: {
@@ -96,6 +104,20 @@ async def get_my_profile() -> UsuarioPerfilResponse:
                         "naoAutenticado": {
                             "summary": "Não autenticado",
                             "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                        },
+                    },
+                },
+            },
+        },
+        409: {
+            "description": "Conflito — e-mail já pertence a outro usuário.",
+            "content": {
+                "application/json": {
+                    "schema": ErroPadrao.model_json_schema(),
+                    "examples": {
+                        "emailDuplicado": {
+                            "summary": "E-mail duplicado",
+                            "value": {"mensagem": "Este e-mail já está em uso por outro usuário."},
                         },
                     },
                 },
@@ -117,17 +139,36 @@ async def get_my_profile() -> UsuarioPerfilResponse:
         },
     },
 )
-async def update_my_profile(body: UpdateProfileRequest) -> UsuarioPerfilResponse:
-    # Em produção, aplicaria as alterações no banco de dados.
-    # No mock, retorna o usuário com o nome atualizado se fornecido.
-    usuario_atualizado = _MOCK_USUARIO.model_copy(
-        update={
-            k: v
-            for k, v in body.model_dump().items()
-            if v is not None
-        }
-    )
+async def update_my_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UsuarioPerfilResponse:
+    # Atualizar nome completo
+    if body.nome_completo is not None:
+        current_user.nome_completo = body.nome_completo
+
+    # Atualizar e-mail (verificar duplicidade)
+    if body.email is not None and body.email != current_user.email:
+        email_existente = db.query(User).filter(
+            User.email == body.email,
+            User.id != current_user.id,
+        ).first()
+        if email_existente:
+            raise HTTPException(
+                status_code=409,
+                detail="Este e-mail já está em uso por outro usuário.",
+            )
+        current_user.email = body.email
+
+    # Atualizar foto de perfil
+    if body.foto_perfil is not None:
+        current_user.foto_perfil = body.foto_perfil
+
+    db.commit()
+    db.refresh(current_user)
+
     return UsuarioPerfilResponse(
         mensagem="Perfil atualizado com sucesso.",
-        usuario=usuario_atualizado,
+        usuario=_build_usuario_completo(current_user),
     )

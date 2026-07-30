@@ -56,7 +56,17 @@ A segurança de credenciais utiliza a biblioteca **`bcrypt`** de forma direta:
 
 ---
 
-## 6. Verificação de Saúde (`/api/health`)
+## 6. Redis e Cache em Memória (`app/redis.py`)
+
+A infraestrutura agora conta com um container do **Redis** para armazenamento rápido, volátil e em memória, essencial para funcionalidades como os códigos de OTP (One-Time Password) da recuperação de senha.
+
+* **Cliente Assíncrono**: Utiliza a biblioteca `redis[hiredis]` (modo assíncrono do `redis-py` com parser em C) para não bloquear o event loop do FastAPI durante operações de I/O.
+* **Gerenciamento de Ciclo de Vida**: O pool de conexões do Redis é instanciado no evento de `startup` da API (via gerenciador de contexto `lifespan` no `app/main.py`) e fechado adequadamente no `shutdown`.
+* **Funções Auxiliares OTP**: O módulo `app/redis.py` expõe métodos diretos como `salvar_otp` e `verificar_otp`, abstraindo a lógica de TTL (Time-To-Live) e garantindo que chaves sejam limpas automaticamente.
+
+---
+
+## 7. Verificação de Saúde (`/api/health`)
 
 A rota de health check foi configurada no endpoint `/api/health` e implementa:
 * **Validação do Servidor**: Retorna se o servidor FastAPI está operacional.
@@ -64,12 +74,12 @@ A rota de health check foi configurada no endpoint `/api/health` e implementa:
 
 ---
 
-## 7. Script de Inicialização Automatizado (`run.py`)
+## 8. Script de Inicialização Automatizado (`run.py`)
 
 Para unificar o setup de desenvolvimento local entre diferentes sistemas operacionais (Windows, macOS e Linux), foi criado o script helper `run.py` na raiz do projeto.
 
 Ao executar `python run.py`:
-1. **Docker Compose**: O script detecta a versão do Docker Compose instalada (`docker compose` ou `docker-compose`) e sobe os containers do PostgreSQL e pgAdmin em segundo plano (`up -d`).
+1. **Docker Compose**: O script detecta a versão do Docker Compose instalada (`docker compose` ou `docker-compose`) e sobe os containers do PostgreSQL, pgAdmin e Redis em segundo plano (`up -d`).
 2. **Aguardar DB**: Aguarda alguns segundos para garantir que o PostgreSQL esteja pronto para aceitar conexões.
 3. **Migrations**: Executa automaticamente as migrações do Alembic (`alembic upgrade head`) utilizando o interpretador Python do ambiente virtual ativo.
 4. **FastAPI Server**: Inicia o servidor de desenvolvimento Uvicorn com hot-reload habilitado na porta `8000`.

@@ -4,6 +4,7 @@ Router — Autenticação e Identidade
 Endpoints: register, login, forgot-password, verify-code, reset-password.
 """
 
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -12,7 +13,20 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.utils.security import hash_senha
+from app.deps import get_current_user
+from app.redis import salvar_otp, verificar_otp
+from app.utils.security import (
+    hash_senha,
+    verificar_senha,
+    criar_token_acesso,
+    criar_token_atualizacao,
+    criar_token_redefinicao,
+    decodificar_token,
+    gerar_codigo_otp,
+)
+
+logger = logging.getLogger("uvicorn.error")
+
 from app.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -107,10 +121,17 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         meta_horas_semanais=body.metas_horas_semanais,
         foto_perfil="avatar_padrao.png",
         curso_id=body.curso_id,
+        status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),  # Pendente
+        global_role=UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"),  # Aluno
     )
     db.add(novo_usuario)
     db.commit()
     db.refresh(novo_usuario)
+
+    # Gerar tokens JWT reais
+    token_dados = {"sub": str(novo_usuario.id)}
+    token_acesso = criar_token_acesso(token_dados)
+    token_atualizacao = criar_token_atualizacao(token_dados)
 
     # Montar resposta com os dados do usuário criado
     usuario_resposta = UsuarioCompleto(
@@ -128,10 +149,10 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
     )
 
     return AuthTokenResponse(
-        mensagem="Usuário registrado com sucesso.",
-        token_acesso="token-placeholder-implementar-jwt",
+        mensagem="Usuário registrado com sucesso. Aguardando aprovação do administrador.",
+        token_acesso=token_acesso,
         tipo_token="bearer",
-        token_atualizacao="refresh-token-placeholder",
+        token_atualizacao=token_atualizacao,
         usuario=usuario_resposta,
     )
 
@@ -179,13 +200,42 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         },
     },
 )
-async def login_user(body: LoginRequest) -> AuthTokenResponse:
+async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
+    # Buscar usuário pelo e-mail
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario or usuario.status.nome != "ativo":
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos, ou conta inativa/pendente.")
+
+    # Verificar senha contra o hash armazenado
+    if not verificar_senha(body.senha, usuario.senha_hash):
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos. Tente novamente.")
+
+    # Gerar tokens JWT reais
+    token_dados = {"sub": str(usuario.id)}
+    token_acesso = criar_token_acesso(token_dados)
+    token_atualizacao = criar_token_atualizacao(token_dados)
+
+    # Montar resposta com os dados do usuário
+    usuario_resposta = UsuarioCompleto(
+        id=usuario.id,
+        nome_completo=usuario.nome_completo,
+        email=usuario.email,
+        matricula=usuario.matricula,
+        data_nascimento=usuario.data_nascimento,
+        data_ingresso=usuario.data_ingresso,
+        meta_horas_semanais=usuario.meta_horas_semanais,
+        foto_perfil=usuario.foto_perfil,
+        curso_id=usuario.curso_id,
+        status_id=usuario.status_id or UUID("00000000-0000-0000-0000-000000000000"),
+        global_role=usuario.global_role or UUID("00000000-0000-0000-0000-000000000000"),
+    )
+
     return AuthTokenResponse(
         mensagem="Login realizado com sucesso.",
-        token_acesso="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...signature",
+        token_acesso=token_acesso,
         tipo_token="bearer",
-        token_atualizacao="def50200543e332...",
-        usuario=_MOCK_USUARIO,
+        token_atualizacao=token_atualizacao,
+        usuario=usuario_resposta,
     )
 
 
@@ -217,10 +267,26 @@ async def login_user(body: LoginRequest) -> AuthTokenResponse:
         },
     },
 )
-async def forgot_password(body: ForgotPasswordRequest) -> MensagemResponse:
-    return MensagemResponse(
-        mensagem="Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado.",
-    )
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Mensagem genérica — nunca revelar se o e-mail existe ou não
+    mensagem_generica = "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario:
+        # Retorna a mesma mensagem para não vazar informação
+        return MensagemResponse(mensagem=mensagem_generica)
+
+    # Gerar código OTP e salvar no Redis com TTL de 15 min
+    codigo = gerar_codigo_otp()
+    await salvar_otp(body.email, codigo)
+
+    # MVP: imprimir no console (substituir por e-mail real no futuro)
+    logger.info("📧 [OTP] Código para %s: %s", body.email, codigo)
+
+    return MensagemResponse(mensagem=mensagem_generica)
 
 
 # ── POST /auth/verify-code ──────────────────────────────────
@@ -251,10 +317,32 @@ async def forgot_password(body: ForgotPasswordRequest) -> MensagemResponse:
         },
     },
 )
-async def verify_code(body: VerifyCodeRequest) -> VerifyCodeResponse:
+async def verify_code(
+    body: VerifyCodeRequest,
+    db: Session = Depends(get_db),
+) -> VerifyCodeResponse:
+    # Verificar o código OTP no Redis
+    otp_valido = await verificar_otp(body.email, body.codigo)
+    if not otp_valido:
+        raise HTTPException(
+            status_code=401,
+            detail="O código inserido é inválido ou já expirou.",
+        )
+
+    # Buscar usuário para gerar o token de redefinição
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=401,
+            detail="O código inserido é inválido ou já expirou.",
+        )
+
+    # Gerar JWT de redefinição (5 min de validade)
+    token = criar_token_redefinicao(str(usuario.id))
+
     return VerifyCodeResponse(
         mensagem="Código validado com sucesso.",
-        token_redefinicao="abc123xyz890tokenTemporario",
+        token_redefinicao=token,
     )
 
 
@@ -300,7 +388,38 @@ async def verify_code(body: VerifyCodeRequest) -> VerifyCodeResponse:
         },
     },
 )
-async def reset_password(body: ResetPasswordRequest) -> MensagemResponse:
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar o token de redefinição
+    payload = decodificar_token(body.token_redefinicao)
+    if payload is None or payload.get("tipo") != "redefinicao":
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    # Buscar usuário e atualizar senha
+    usuario = db.query(User).filter(User.id == user_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    usuario.senha_hash = hash_senha(body.nova_senha)
+    db.commit()
+
+    logger.info("🔒 Senha redefinida com sucesso para user_id=%s", user_id)
+
     return MensagemResponse(
         mensagem="Sua senha foi redefinida com sucesso. Você já pode realizar o login.",
     )
@@ -433,7 +552,22 @@ async def refresh_token(body: RefreshTokenRequest) -> RefreshTokenResponse:
         },
     },
 )
-async def change_password(body: ChangePasswordRequest) -> MensagemResponse:
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar senha atual
+    if not verificar_senha(body.senha_atual, current_user.senha_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="A senha atual informada está incorreta.",
+        )
+
+    # Atualizar com o novo hash
+    current_user.senha_hash = hash_senha(body.nova_senha)
+    db.commit()
+
     return MensagemResponse(
         mensagem="Senha alterada com sucesso.",
     )
@@ -472,8 +606,23 @@ async def change_password(body: ChangePasswordRequest) -> MensagemResponse:
         },
     },
 )
-async def delete_account(body: DeleteAccountRequest) -> MensagemResponse:
+async def delete_account(
+    body: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar senha de confirmação
+    if not verificar_senha(body.senha, current_user.senha_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="A senha informada está incorreta. A conta não foi excluída.",
+        )
+
+    # Soft delete — mudar status para inativo
+    current_user.status_id = UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3")  # Inativo
+    db.commit()
+
     return MensagemResponse(
-        mensagem="Sua conta foi excluída permanentemente.",
+        mensagem="Sua conta foi desativada com sucesso.",
     )
 
