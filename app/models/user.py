@@ -29,15 +29,18 @@ class User(Base):
     meta_horas_semanais = Column(Integer, nullable=False, default=12)
     foto_perfil = Column(String(500), nullable=True, default="avatar_padrao.png")
 
-    # UUIDs referenciais — serão convertidos em ForeignKey
-    # quando as tabelas de cursos, status e roles forem criadas.
+    # UUIDs referenciais
     curso_id = Column(UUID(as_uuid=True), ForeignKey(
         "cursos.id"), nullable=False)
-    status_id = Column(UUID(as_uuid=True), nullable=True)
-    global_role = Column(UUID(as_uuid=True), nullable=True)
+    status_id = Column(UUID(as_uuid=True), ForeignKey(
+        "status_usuarios.id"), nullable=False)
+    global_role = Column(UUID(as_uuid=True), ForeignKey(
+        "cargos.id"), nullable=False)
 
     # relacao N para 1
     curso = relationship("Course", back_populates="usuarios")
+    status = relationship("Status")
+    role = relationship("Role")
 
     def __repr__(self) -> str:
         return f"<User {self.nome_completo} ({self.email})>"
