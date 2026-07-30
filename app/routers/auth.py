@@ -4,6 +4,7 @@ Router — Autenticação e Identidade
 Endpoints: register, login, forgot-password, verify-code, reset-password.
 """
 
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -13,12 +14,19 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.deps import get_current_user
+from app.redis import salvar_otp, verificar_otp
 from app.utils.security import (
     hash_senha,
     verificar_senha,
     criar_token_acesso,
     criar_token_atualizacao,
+    criar_token_redefinicao,
+    decodificar_token,
+    gerar_codigo_otp,
 )
+
+logger = logging.getLogger("uvicorn.error")
+
 from app.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -259,10 +267,26 @@ async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthT
         },
     },
 )
-async def forgot_password(body: ForgotPasswordRequest) -> MensagemResponse:
-    return MensagemResponse(
-        mensagem="Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado.",
-    )
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Mensagem genérica — nunca revelar se o e-mail existe ou não
+    mensagem_generica = "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario:
+        # Retorna a mesma mensagem para não vazar informação
+        return MensagemResponse(mensagem=mensagem_generica)
+
+    # Gerar código OTP e salvar no Redis com TTL de 15 min
+    codigo = gerar_codigo_otp()
+    await salvar_otp(body.email, codigo)
+
+    # MVP: imprimir no console (substituir por e-mail real no futuro)
+    logger.info("📧 [OTP] Código para %s: %s", body.email, codigo)
+
+    return MensagemResponse(mensagem=mensagem_generica)
 
 
 # ── POST /auth/verify-code ──────────────────────────────────
@@ -293,10 +317,32 @@ async def forgot_password(body: ForgotPasswordRequest) -> MensagemResponse:
         },
     },
 )
-async def verify_code(body: VerifyCodeRequest) -> VerifyCodeResponse:
+async def verify_code(
+    body: VerifyCodeRequest,
+    db: Session = Depends(get_db),
+) -> VerifyCodeResponse:
+    # Verificar o código OTP no Redis
+    otp_valido = await verificar_otp(body.email, body.codigo)
+    if not otp_valido:
+        raise HTTPException(
+            status_code=401,
+            detail="O código inserido é inválido ou já expirou.",
+        )
+
+    # Buscar usuário para gerar o token de redefinição
+    usuario = db.query(User).filter(User.email == body.email).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=401,
+            detail="O código inserido é inválido ou já expirou.",
+        )
+
+    # Gerar JWT de redefinição (5 min de validade)
+    token = criar_token_redefinicao(str(usuario.id))
+
     return VerifyCodeResponse(
         mensagem="Código validado com sucesso.",
-        token_redefinicao="abc123xyz890tokenTemporario",
+        token_redefinicao=token,
     )
 
 
@@ -342,7 +388,38 @@ async def verify_code(body: VerifyCodeRequest) -> VerifyCodeResponse:
         },
     },
 )
-async def reset_password(body: ResetPasswordRequest) -> MensagemResponse:
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar o token de redefinição
+    payload = decodificar_token(body.token_redefinicao)
+    if payload is None or payload.get("tipo") != "redefinicao":
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    # Buscar usuário e atualizar senha
+    usuario = db.query(User).filter(User.id == user_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        )
+
+    usuario.senha_hash = hash_senha(body.nova_senha)
+    db.commit()
+
+    logger.info("🔒 Senha redefinida com sucesso para user_id=%s", user_id)
+
     return MensagemResponse(
         mensagem="Sua senha foi redefinida com sucesso. Você já pode realizar o login.",
     )
