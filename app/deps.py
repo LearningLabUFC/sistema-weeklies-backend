@@ -47,7 +47,22 @@ async def get_current_user(
         raise credenciais_exception
 
     usuario = db.query(User).filter(User.id == user_id).first()
-    if usuario is None:
+    if usuario is None or usuario.status.nome != "ativo":
         raise credenciais_exception
 
     return usuario
+
+
+def require_role(allowed_roles: list[str]):
+    """
+    Dependency factory que verifica se o usuário autenticado possui
+    um dos cargos (roles) permitidos.
+    """
+    async def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        if not current_user.role or current_user.role.nome not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acesso negado. Nível de permissão insuficiente.",
+            )
+        return current_user
+    return role_checker

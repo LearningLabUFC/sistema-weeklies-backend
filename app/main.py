@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from app.database import SessionLocal
 
-from app.routers import auth, domain, users
+from app.routers import admin, auth, domain, users
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -47,6 +47,7 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────────
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(domain.router)

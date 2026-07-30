@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.deps import get_current_user
 from app.utils.security import (
     hash_senha,
     verificar_senha,
@@ -112,6 +113,8 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         meta_horas_semanais=body.metas_horas_semanais,
         foto_perfil="avatar_padrao.png",
         curso_id=body.curso_id,
+        status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),  # Pendente
+        global_role=UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"),  # Aluno
     )
     db.add(novo_usuario)
     db.commit()
@@ -138,7 +141,7 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
     )
 
     return AuthTokenResponse(
-        mensagem="Usuário registrado com sucesso.",
+        mensagem="Usuário registrado com sucesso. Aguardando aprovação do administrador.",
         token_acesso=token_acesso,
         tipo_token="bearer",
         token_atualizacao=token_atualizacao,
@@ -192,8 +195,8 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
 async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
     # Buscar usuário pelo e-mail
     usuario = db.query(User).filter(User.email == body.email).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos. Tente novamente.")
+    if not usuario or usuario.status.nome != "ativo":
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos, ou conta inativa/pendente.")
 
     # Verificar senha contra o hash armazenado
     if not verificar_senha(body.senha, usuario.senha_hash):
@@ -472,7 +475,22 @@ async def refresh_token(body: RefreshTokenRequest) -> RefreshTokenResponse:
         },
     },
 )
-async def change_password(body: ChangePasswordRequest) -> MensagemResponse:
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar senha atual
+    if not verificar_senha(body.senha_atual, current_user.senha_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="A senha atual informada está incorreta.",
+        )
+
+    # Atualizar com o novo hash
+    current_user.senha_hash = hash_senha(body.nova_senha)
+    db.commit()
+
     return MensagemResponse(
         mensagem="Senha alterada com sucesso.",
     )
@@ -511,8 +529,23 @@ async def change_password(body: ChangePasswordRequest) -> MensagemResponse:
         },
     },
 )
-async def delete_account(body: DeleteAccountRequest) -> MensagemResponse:
+async def delete_account(
+    body: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MensagemResponse:
+    # Validar senha de confirmação
+    if not verificar_senha(body.senha, current_user.senha_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="A senha informada está incorreta. A conta não foi excluída.",
+        )
+
+    # Soft delete — mudar status para inativo
+    current_user.status_id = UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3")  # Inativo
+    db.commit()
+
     return MensagemResponse(
-        mensagem="Sua conta foi excluída permanentemente.",
+        mensagem="Sua conta foi desativada com sucesso.",
     )
 
