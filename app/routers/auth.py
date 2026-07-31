@@ -205,7 +205,7 @@ async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthT
     usuario = db.query(User).filter(User.email == body.email).first()
 
     if not usuario or usuario.status.nome == 'inativo':
-        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos, ou conta inativa/pendente.")
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos, ou conta inativa.")
 
     # Verificar senha contra o hash armazenado
     if not verificar_senha(body.senha, usuario.senha_hash):
