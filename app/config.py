@@ -35,6 +35,23 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     OTP_EXPIRE_MINUTES: int = 15
 
+    # ── E-mail (SMTP — Gmail App Password) ───────────────────
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_NAME: str = "LearningLab"
+    SMTP_FROM_EMAIL: str = "noreply@learninglab.com.br"
+    SMTP_USE_TLS: bool = True
+
+    # ── Rate Limiting (forgot-password) ──────────────────────
+    FORGOT_PASSWORD_MAX_REQUESTS: int = 3
+    FORGOT_PASSWORD_WINDOW_MINUTES: int = 15
+
+    # ── Anti Brute-force (verify-code) ───────────────────────
+    VERIFY_CODE_MAX_ATTEMPTS: int = 5
+    VERIFY_CODE_COOLDOWN_MINUTES: int = 15
+
     @property
     def DATABASE_URL(self) -> str:
         """Monta a URL de conexão com o PostgreSQL a partir das variáveis individuais."""
