@@ -7,10 +7,25 @@ definido no arquivo douglaslima-b57-Sistema-LL-1.0.0-unresolved.json.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+# ── Validação de senha forte ─────────────────────────────────
+
+_SENHA_REGEX = re.compile(
+    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"
+    r"(?=.*[!@#$%^&*()_+\-=\[\]{}|;:'\",.<>?/`~])"
+    r".{8,}$"
+)
+
+_SENHA_MSG = (
+    "A senha deve conter no mínimo 8 caracteres, incluindo "
+    "letra maiúscula, letra minúscula, número e caractere especial."
+)
 
 
 # ────────────────────────────────────────────
@@ -128,6 +143,13 @@ class RegisterRequest(BaseModel):
         description="Senha do usuário.",
         examples=["SenhaForte123!"],
     )
+
+    @field_validator("senha")
+    @classmethod
+    def validar_senha_forte(cls, v: str) -> str:
+        if not _SENHA_REGEX.match(v):
+            raise ValueError(_SENHA_MSG)
+        return v
     data_nascimento: date = Field(
         ...,
         examples=["2000-01-01"],
@@ -199,6 +221,13 @@ class ResetPasswordRequest(BaseModel):
         description="Nova senha que substituirá a anterior.",
         examples=["NovaSenhaSegura2026!"],
     )
+
+    @field_validator("nova_senha")
+    @classmethod
+    def validar_senha_forte(cls, v: str) -> str:
+        if not _SENHA_REGEX.match(v):
+            raise ValueError(_SENHA_MSG)
+        return v
 
 
 # ────────────────────────────────────────────
@@ -305,6 +334,13 @@ class ChangePasswordRequest(BaseModel):
         description="Nova senha que substituirá a atual.",
         examples=["NovaSenhaSegura2026!"],
     )
+
+    @field_validator("nova_senha")
+    @classmethod
+    def validar_senha_forte(cls, v: str) -> str:
+        if not _SENHA_REGEX.match(v):
+            raise ValueError(_SENHA_MSG)
+        return v
 
 
 class DeleteAccountRequest(BaseModel):

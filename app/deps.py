@@ -6,6 +6,8 @@ o token JWT do header Authorization e retorna o usuário
 correspondente do banco de dados.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -26,7 +28,8 @@ async def get_current_user(
     1. Extrai o Bearer token do header Authorization.
     2. Decodifica e valida o JWT.
     3. Busca o usuário no banco pelo 'sub' (ID) do payload.
-    4. Levanta 401 se qualquer etapa falhar.
+    4. Verifica se o token foi emitido após a última troca de senha.
+    5. Levanta 401 se qualquer etapa falhar.
     """
     credenciais_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,6 +52,16 @@ async def get_current_user(
     usuario = db.query(User).filter(User.id == user_id).first()
     if usuario is None or usuario.status.nome != "ativo":
         raise credenciais_exception
+
+    # Invalidar tokens emitidos antes da última troca de senha
+    # JWT iat tem precisão de segundos, enquanto o banco tem microsegundos.
+    # Truncamos o timestamp do banco para evitar falso-positivo no mesmo segundo.
+    iat = payload.get("iat")
+    if iat and usuario.senha_atualizada_em:
+        token_emitido_em = datetime.fromtimestamp(iat, tz=timezone.utc)
+        senha_atualizada = usuario.senha_atualizada_em.replace(microsecond=0)
+        if token_emitido_em < senha_atualizada:
+            raise credenciais_exception
 
     return usuario
 
