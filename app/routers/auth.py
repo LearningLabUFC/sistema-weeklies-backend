@@ -5,16 +5,29 @@ Endpoints: register, login, forgot-password, verify-code, reset-password.
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
 from app.deps import get_current_user
-from app.redis import salvar_otp, verificar_otp
+from app.redis import (
+    salvar_otp,
+    verificar_otp,
+    verificar_rate_limit_email,
+    incrementar_rate_limit_email,
+    verificar_rate_limit_ip,
+    incrementar_rate_limit_ip,
+    verificar_bloqueio_bruteforce,
+    registrar_tentativa_falha,
+    aplicar_cooldown_bruteforce,
+    limpar_tentativas,
+)
+from app.config import settings
+from app.utils.email_service import enviar_email_otp
 from app.utils.security import (
     hash_senha,
     verificar_senha,
@@ -270,13 +283,32 @@ async def login_user(body: LoginRequest, db: Session = Depends(get_db)) -> AuthT
 )
 async def forgot_password(
     body: ForgotPasswordRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> MensagemResponse:
     # Mensagem genérica — nunca revelar se o e-mail existe ou não
     mensagem_generica = "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
 
+    # Rate limit por IP (global)
+    client_ip = request.client.host if request.client else "unknown"
+    if not await verificar_rate_limit_ip(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas solicitações deste endereço. Tente novamente mais tarde.",
+        )
+
+    # Rate limit por e-mail
+    if not await verificar_rate_limit_email(body.email):
+        raise HTTPException(
+            status_code=429,
+            detail="Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos.",
+        )
+
     usuario = db.query(User).filter(User.email == body.email).first()
     if not usuario:
+        # Incrementar rate limit de IP mesmo sem usuário (evitar enumeração)
+        await incrementar_rate_limit_ip(client_ip)
         # Retorna a mesma mensagem para não vazar informação
         return MensagemResponse(mensagem=mensagem_generica)
 
@@ -284,8 +316,12 @@ async def forgot_password(
     codigo = gerar_codigo_otp()
     await salvar_otp(body.email, codigo)
 
-    # MVP: imprimir no console (substituir por e-mail real no futuro)
-    logger.info("📧 [OTP] Código para %s: %s", body.email, codigo)
+    # Incrementar rate limits
+    await incrementar_rate_limit_email(body.email)
+    await incrementar_rate_limit_ip(client_ip)
+
+    # Enviar e-mail em background (não bloqueia a resposta)
+    background_tasks.add_task(enviar_email_otp, body.email, codigo)
 
     return MensagemResponse(mensagem=mensagem_generica)
 
@@ -322,13 +358,37 @@ async def verify_code(
     body: VerifyCodeRequest,
     db: Session = Depends(get_db),
 ) -> VerifyCodeResponse:
+    # Verificar se o e-mail está em cooldown (brute-force)
+    if await verificar_bloqueio_bruteforce(body.email):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Muitas tentativas incorretas. Solicite um novo código "
+                f"após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos."
+            ),
+        )
+
     # Verificar o código OTP no Redis
     otp_valido = await verificar_otp(body.email, body.codigo)
     if not otp_valido:
+        # Registrar tentativa falha
+        tentativas = await registrar_tentativa_falha(body.email)
+        if tentativas >= settings.VERIFY_CODE_MAX_ATTEMPTS:
+            await aplicar_cooldown_bruteforce(body.email)
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Limite de tentativas atingido. O código foi invalidado. "
+                    f"Solicite um novo após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos."
+                ),
+            )
         raise HTTPException(
             status_code=401,
             detail="O código inserido é inválido ou já expirou.",
         )
+
+    # Código correto — limpar tentativas
+    await limpar_tentativas(body.email)
 
     # Buscar usuário para gerar o token de redefinição
     usuario = db.query(User).filter(User.email == body.email).first()
@@ -416,7 +476,15 @@ async def reset_password(
             detail="Sessão de redefinição expirada. Solicite um novo código.",
         )
 
+    # Verificar se a nova senha é igual à atual
+    if verificar_senha(body.nova_senha, usuario.senha_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha deve ser diferente da senha anterior.",
+        )
+
     usuario.senha_hash = hash_senha(body.nova_senha)
+    usuario.senha_atualizada_em = datetime.now(timezone.utc)
     db.commit()
 
     logger.info("🔒 Senha redefinida com sucesso para user_id=%s", user_id)
@@ -565,8 +633,16 @@ async def change_password(
             detail="A senha atual informada está incorreta.",
         )
 
-    # Atualizar com o novo hash
+    # Verificar se a nova senha é igual à atual
+    if verificar_senha(body.nova_senha, current_user.senha_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha deve ser diferente da senha atual.",
+        )
+
+    # Atualizar com o novo hash e invalidar sessões antigas
     current_user.senha_hash = hash_senha(body.nova_senha)
+    current_user.senha_atualizada_em = datetime.now(timezone.utc)
     db.commit()
 
     return MensagemResponse(
