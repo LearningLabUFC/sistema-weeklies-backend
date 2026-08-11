@@ -6,8 +6,9 @@ Campos baseados no schema Pydantic UsuarioCompleto (app/schemas.py).
 """
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, Date, Integer, String, ForeignKey
+from sqlalchemy import Column, Date, DateTime, Integer, String, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -28,6 +29,12 @@ class User(Base):
     data_ingresso = Column(Date, nullable=False)
     meta_horas_semanais = Column(Integer, nullable=False, default=12)
     foto_perfil = Column(String(500), nullable=True, default="avatar_padrao.png")
+    senha_atualizada_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
 
     # UUIDs referenciais
     curso_id = Column(UUID(as_uuid=True), ForeignKey(

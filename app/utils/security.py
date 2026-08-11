@@ -42,7 +42,7 @@ def criar_token_acesso(dados: dict, expira_em_minutos: int | None = None) -> str
     expiracao = datetime.now(timezone.utc) + timedelta(
         minutes=expira_em_minutos or settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    payload.update({"exp": expiracao, "tipo": "acesso"})
+    payload.update({"exp": expiracao, "iat": datetime.now(timezone.utc), "tipo": "acesso"})
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -50,7 +50,7 @@ def criar_token_atualizacao(dados: dict) -> str:
     """Cria um refresh token JWT com expiração de 7 dias."""
     payload = dados.copy()
     expiracao = datetime.now(timezone.utc) + timedelta(days=7)
-    payload.update({"exp": expiracao, "tipo": "atualizacao"})
+    payload.update({"exp": expiracao, "iat": datetime.now(timezone.utc), "tipo": "atualizacao"})
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
