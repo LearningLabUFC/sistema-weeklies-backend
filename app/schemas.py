@@ -354,6 +354,20 @@ class DeleteAccountRequest(BaseModel):
 
 
 # ────────────────────────────────────────────
+# Admin — Gerenciamento de usuários
+# ────────────────────────────────────────────
+
+class ChangeStatusRequest(BaseModel):
+    """Body para PATCH /admin/users/{user_id}/status."""
+
+    novo_status: str = Field(
+        ...,
+        description="Novo status do usuário. Valores aceitos: 'ativo', 'inativo'.",
+        examples=["ativo"],
+    )
+
+
+# ────────────────────────────────────────────
 # Users — Perfil do usuário (M2)
 # ────────────────────────────────────────────
 

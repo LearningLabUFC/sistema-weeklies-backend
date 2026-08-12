@@ -16,7 +16,7 @@ from app.deps import require_role
 from app.models.user import User
 from app.models.status import Status
 from app.models.role import Role
-from app.schemas import MensagemResponse, UsuarioCompleto
+from app.schemas import ChangeStatusRequest, MensagemResponse, UsuarioCompleto
 
 router = APIRouter(
     prefix="/admin",
@@ -66,11 +66,11 @@ async def list_pending_users(
 )
 async def change_user_status(
     user_id: UUID,
-    novo_status: str, # "ativo", "inativo" etc. passado via query param, ou deveria ser body? Vou usar query por simplicidade.
+    body: ChangeStatusRequest,
     admin_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db),
 ) -> Any:
-    if novo_status not in ["ativo", "inativo"]:
+    if body.novo_status not in ["ativo", "inativo"]:
         raise HTTPException(status_code=400, detail="Status inválido. Escolha 'ativo' ou 'inativo'.")
     
     usuario = db.query(User).filter(User.id == user_id).first()
@@ -81,14 +81,14 @@ async def change_user_status(
     if usuario.role.nome == "super_admin" and admin_user.role.nome != "super_admin":
         raise HTTPException(status_code=403, detail="Apenas outro super_admin pode alterar um super_admin.")
 
-    status_obj = db.query(Status).filter(Status.nome == novo_status).first()
+    status_obj = db.query(Status).filter(Status.nome == body.novo_status).first()
     if not status_obj:
         raise HTTPException(status_code=404, detail="Status não encontrado no banco.")
 
     usuario.status_id = status_obj.id
     db.commit()
 
-    return MensagemResponse(mensagem=f"Status do usuário alterado para {novo_status} com sucesso.")
+    return MensagemResponse(mensagem=f"Status do usuário alterado para {body.novo_status} com sucesso.")
 
 
 # ── DELETE /admin/users/{user_id} ───────────────────────────
