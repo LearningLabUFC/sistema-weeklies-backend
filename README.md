@@ -75,7 +75,27 @@ python run.py
 * **Documentação (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Health Check**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
+#### Autenticação no Swagger UI:
+1. Faça login através do endpoint `POST /auth/login` com suas credenciais e copie o `token_acesso` retornado.
+2. Clique no botão verde **Authorize** no canto superior direito da página do Swagger.
+3. Cole o valor do token no campo **Value** (sem aspas) e clique em **Authorize**.
+4. Agora todos os endpoints protegidos estarão autenticados.
+
 *(Ao fechar a aplicação com `Ctrl+C`, os containers do Docker serão finalizados automaticamente).*
+
+---
+
+## Gestão de Membros e Permissões (RBAC)
+
+Endpoints protegidos para administradores (`admin` e `super_admin`) gerenciarem a equipe:
+
+| Método | Endpoint | Acesso | Descrição |
+| ------ | -------- | ------ | --------- |
+| `GET` | `/admin/users` | Admin / Super Admin | Listagem paginada (`pagina`, `limite`), com busca por nome/email (`busca`) e filtros (`status`, `role`). Retorna dados completos dos membros com nomes de curso, status e cargo resolvidos. |
+| `GET` | `/admin/users/pending` | Admin / Super Admin | Lista usuários com cadastro pendente aguardando aprovação. |
+| `PATCH` | `/admin/users/{user_id}/role` | Admin / Super Admin | Altera o cargo de um membro (`super_admin`, `admin`, `aluno`). Impedimentos: `admin` comum não pode alterar `super_admin`, auto-rebaixamento é proibido, e o último admin do sistema não pode ser rebaixado. |
+| `PATCH` | `/admin/users/{user_id}/status` | Admin / Super Admin | Aprova ou altera o status de um membro (`ativo`, `inativo`). |
+| `DELETE` | `/admin/users/{user_id}` | Super Admin | Inativa (soft delete) qualquer usuário no sistema. |
 
 ---
 
