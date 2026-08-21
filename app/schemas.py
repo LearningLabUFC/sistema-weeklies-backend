@@ -27,6 +27,9 @@ _SENHA_MSG = (
     "letra maiúscula, letra minúscula, número e caractere especial."
 )
 
+_MATRICULA_REGEX = re.compile(r"^\d{6}$")
+_MATRICULA_MSG = "A matrícula deve conter exatamente 6 dígitos numéricos."
+
 
 # ────────────────────────────────────────────
 # Schemas reutilizáveis (components/schemas)
@@ -156,9 +159,17 @@ class RegisterRequest(BaseModel):
     )
     matricula: str = Field(
         ...,
-        description="Matrícula da universidade.",
+        description="Matrícula da universidade (exatamente 6 dígitos numéricos).",
         examples=["512345"],
     )
+
+    @field_validator("matricula")
+    @classmethod
+    def validar_matricula(cls, v: str) -> str:
+        v = v.strip()
+        if not _MATRICULA_REGEX.match(v):
+            raise ValueError(_MATRICULA_MSG)
+        return v
     curso_id: UUID = Field(
         ...,
         description="UUID do curso acadêmico do aluno.",
