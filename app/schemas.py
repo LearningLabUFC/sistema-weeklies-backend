@@ -169,6 +169,7 @@ class RegisterRequest(BaseModel):
         if not _SENHA_REGEX.match(v):
             raise ValueError(_SENHA_MSG)
         return v
+
     data_nascimento: date = Field(
         ...,
         description="Data de nascimento do usuário.",
@@ -189,6 +190,7 @@ class RegisterRequest(BaseModel):
         if idade > 120:
             raise ValueError("Data de nascimento inválida (idade máxima excedida).")
         return v
+
     matricula: str = Field(
         ...,
         description="Matrícula da universidade (exatamente 6 dígitos numéricos).",
@@ -202,6 +204,7 @@ class RegisterRequest(BaseModel):
         if not _MATRICULA_REGEX.match(v):
             raise ValueError(_MATRICULA_MSG)
         return v
+
     curso_id: UUID = Field(
         ...,
         description="UUID do curso acadêmico do aluno.",

@@ -119,10 +119,11 @@ class TestRegisterValidation(unittest.TestCase):
 
     def test_data_nascimento_valida(self):
         """Idades válidas (ex: 20 anos, 35 anos, 15 anos) devem ser aceitas."""
+        hoje = date.today()
         datas_validas = [
-            date(2000, 1, 1),
-            date(1990, 5, 20),
-            date(2008, 1, 1),
+            hoje.replace(year=hoje.year - 20),   # 20 anos
+            hoje.replace(year=hoje.year - 35),   # 35 anos
+            hoje.replace(year=hoje.year - 15),   # 15 anos (acima do mínimo de 14)
         ]
         for d in datas_validas:
             with self.subTest(data=d):
