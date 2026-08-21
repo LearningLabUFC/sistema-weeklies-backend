@@ -13,8 +13,12 @@
 2. [Autenticação JWT](#2-autenticação-jwt)
 3. [Padrão de Respostas de Erro](#3-padrão-de-respostas-de-erro)
 4. [Códigos HTTP Utilizados](#4-códigos-http-utilizados)
-5. [Endpoints — M1 (Infraestrutura)](#5-endpoints--m1-infraestrutura)
-6. [Endpoints — M2 (Autenticação e Gestão de Contas)](#6-endpoints--m2-autenticação-e-gestão-de-contas)
+5. [Endpoints — Infraestrutura e Saúde](#5-endpoints--infraestrutura-e-saúde)
+6. [Endpoints — Autenticação e Identidade (`/auth`)](#6-endpoints--autenticação-e-identidade-auth)
+7. [Endpoints — Perfil do Usuário (`/users`)](#7-endpoints--perfil-do-usuário-users)
+8. [Endpoints — Dados Gerais de Domínio (`/domain`)](#8-endpoints--dados-gerais-de-domínio-domain)
+9. [Endpoints — Administração e RBAC (`/admin`)](#9-endpoints--administração-e-rbac-admin)
+10. [Interfaces TypeScript (Referência para o Frontend)](#10-interfaces-typescript-referência-para-o-frontend)
 
 ---
 
@@ -33,11 +37,11 @@
 
 ## 2. Autenticação JWT
 
-O sistema utiliza **JSON Web Tokens (JWT)** com o algoritmo **HS256** para autenticação.
+O sistema utiliza **JSON Web Tokens (JWT)** com o algoritmo **HS256** para autenticação stateless.
 
 ### 2.1. Access Token (Token de Acesso)
 
-Token de curta duração usado para autenticar cada requisição.
+Token de curta duração utilizado para autenticar cada requisição a rotas protegidas.
 
 **Header:**
 ```json
@@ -51,54 +55,43 @@ Token de curta duração usado para autenticar cada requisição.
 ```json
 {
   "sub": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "email": "joao@exemplo.com",
-  "role": "aluno",
+  "tipo": "acesso",
   "iat": 1719835200,
   "exp": 1719838800
 }
 ```
 
-| Campo  | Tipo     | Descrição                                                        |
-| ------ | -------- | ---------------------------------------------------------------- |
-| `sub`  | `string` | UUID do usuário (subject)                                        |
-| `email`| `string` | E-mail do usuário                                                |
-| `role` | `string` | Nível de acesso: `"aluno"`, `"coordenador"` ou `"admin"`         |
-| `iat`  | `number` | Timestamp Unix de quando o token foi emitido (issued at)         |
-| `exp`  | `number` | Timestamp Unix de expiração (padrão: 60 minutos após emissão)    |
+| Campo  | Tipo     | Descrição                                                              |
+| ------ | -------- | ---------------------------------------------------------------------- |
+| `sub`  | `string` | UUID do usuário no banco de dados                                       |
+| `tipo` | `string` | Identificador do tipo do token (`"acesso"`)                             |
+| `iat`  | `number` | Timestamp Unix de emissão (*issued at*)                                |
+| `exp`  | `number` | Timestamp Unix de expiração (padrão: 60 minutos após emissão)           |
 
-**Expiração:** 60 minutos (configurável via `ACCESS_TOKEN_EXPIRE_MINUTES` no `.env`)
+> **Nota sobre permissões:** O backend valida o cargo (`global_role`) e o status da conta (`ativo`) consultando o banco de dados via injeção de dependência (`get_current_user` / `require_role`), garantindo que mudanças de permissões ou inativações de conta tenham efeito imediato.
 
 ### 2.2. Refresh Token (Token de Atualização)
 
-Token de longa duração usado exclusivamente para obter um novo Access Token sem exigir novo login.
+Token de longa duração usado para obter um novo par de tokens sem exigir novas credenciais de login.
 
 - **Expiração:** 7 dias
-- **Armazenamento no Frontend:** `httpOnly cookie` ou `localStorage` (a definir com o time de front)
-- **Rotação:** A cada uso do refresh token, um novo par (access + refresh) é gerado e o anterior é invalidado
+- **Payload:** contém `"tipo": "atualizacao"` e `"sub": "<user_id>"`
+- **Armazenamento no Frontend:** `localStorage` ou `httpOnly cookie`
 
-### 2.3. Fluxo de Uso
+### 2.3. Fluxo de Autenticação
 
-```
-1. Usuário faz login  →  Recebe access_token + refresh_token
-2. Frontend envia requisições com:  Authorization: Bearer <access_token>
-3. Access token expira  →  Frontend chama POST /auth/refresh com o refresh_token
-4. Recebe novo par de tokens  →  Continua operando normalmente
-5. Refresh token expira  →  Usuário precisa fazer login novamente
-```
-
-### 2.4. Como o Frontend Deve Enviar o Token
-
-Todas as rotas protegidas exigem o header:
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...
+```text
+1. Login/Registro  → Frontend recebe token_acesso + token_atualizacao + dados do usuário
+2. Requisições     → Frontend envia: Authorization: Bearer <token_acesso>
+3. Token expirado  → Frontend chama POST /auth/refresh enviando o token_atualizacao
+4. Logout          → Frontend descarta os tokens do armazenamento local
 ```
 
 ---
 
 ## 3. Padrão de Respostas de Erro
 
-Todos os erros da API retornam um JSON com a seguinte estrutura:
+Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
 
 ```json
 {
@@ -106,51 +99,57 @@ Todos os erros da API retornam um JSON com a seguinte estrutura:
 }
 ```
 
-**Interface TypeScript equivalente:**
-```typescript
-interface ErroPadrao {
-  mensagem: string;
-}
-```
-
 ---
 
 ## 4. Códigos HTTP Utilizados
 
-| Código | Significado                | Quando é usado                                          |
-| ------ | -------------------------- | ------------------------------------------------------- |
-| `200`  | OK                         | Requisição processada com sucesso                       |
-| `201`  | Created                    | Recurso criado com sucesso (ex: novo usuário)           |
-| `400`  | Bad Request                | Dados inválidos ou não atendem regras de negócio        |
-| `401`  | Unauthorized               | Token ausente, expirado ou credenciais incorretas       |
-| `403`  | Forbidden                  | Usuário autenticado mas sem permissão para o recurso    |
-| `409`  | Conflict                   | Conflito de dados (e-mail ou matrícula já cadastrados)  |
-| `422`  | Unprocessable Entity       | Erro de validação de formato nos campos enviados        |
+| Código | Significado           | Quando é usado                                                              |
+| ------ | --------------------- | --------------------------------------------------------------------------- |
+| `200`  | OK                    | Requisição processada com sucesso                                           |
+| `201`  | Created               | Recurso criado com sucesso (ex: novo usuário)                               |
+| `400`  | Bad Request           | Dados inválidos ou não atendem regras de negócio (ex: senha fraca)           |
+| `401`  | Unauthorized          | Token ausente/inválido ou credenciais incorretas                            |
+| `403`  | Forbidden             | Usuário autenticado mas sem permissão de cargo (RBAC) ou ação não permitida  |
+| `404`  | Not Found             | Recurso não encontrado (ex: usuário inexistente)                            |
+| `409`  | Conflict              | Conflito de dados únicos (e-mail ou matrícula duplicados, regras de admin)  |
+| `422`  | Unprocessable Entity  | Erro de validação de formato e campos pelo Pydantic                         |
+| `429`  | Too Many Requests     | Limite de taxa atingido (rate limiting por IP/e-mail ou cooldown OTP)       |
+| `503`  | Service Unavailable   | Serviço indisponível (ex: banco de dados desconectado no health check)      |
 
 ---
 
-## 5. Endpoints — M1 (Infraestrutura)
+## 5. Endpoints — Infraestrutura e Saúde
 
-### `GET /health`
+### `GET /api/health`
 
-> Verifica se a API está no ar.
+> Verifica a integridade da aplicação FastAPI e a conectividade com o banco de dados PostgreSQL.
 
 **Autenticação:** Não requer
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "status": "healthy"
+  "status": "healthy",
+  "database": "connected"
+}
+```
+
+**Response (503 Service Unavailable):**
+```json
+{
+  "status": "unhealthy",
+  "database": "disconnected",
+  "error": "detalhes do erro de conexão"
 }
 ```
 
 ---
 
-## 6. Endpoints — M2 (Autenticação e Gestão de Contas)
+## 6. Endpoints — Autenticação e Identidade (`/auth`)
 
 ### 6.1. `POST /auth/register`
 
-> Cadastrar novo usuário no sistema.
+> Registra um novo membro na plataforma. O usuário é criado com status `pendente` e role `aluno`.
 
 **Autenticação:** Não requer
 
@@ -162,54 +161,53 @@ interface ErroPadrao {
   "senha": "SenhaForte123!",
   "data_nascimento": "2000-01-01",
   "matricula": "512345",
-  "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "metas_horas_semanais": 12
 }
 ```
 
-| Campo            | Tipo     | Obrigatório | Descrição                        |
-| ---------------- | -------- | ----------- | -------------------------------- |
-| `nome_completo`  | `string` | ✅          | Nome completo do usuário          |
-| `email`          | `string` | ✅          | E-mail válido (formato validado)  |
-| `senha`          | `string` | ✅          | Mínimo 8 caracteres, com números e símbolos |
-| `data_nascimento`| `string` | ✅          | Formato `YYYY-MM-DD`             |
-| `matricula`      | `string` | ✅          | Matrícula universitária (única)   |
-| `curso_id`       | `string` | ✅          | UUID do curso acadêmico           |
+| Campo                  | Tipo     | Obrigatório | Descrição                                                    |
+| ---------------------- | -------- | ----------- | ------------------------------------------------------------ |
+| `nome_completo`        | `string` | ✅          | Nome completo do usuário                                     |
+| `email`                | `string` | ✅          | E-mail válido                                                |
+| `senha`                | `string` | ✅          | Mínimo 8 caracteres (maiúscula, minúscula, número e símbolo) |
+| `data_nascimento`      | `string` | ✅          | Formato `YYYY-MM-DD`                                         |
+| `matricula`            | `string` | ✅          | Matrícula universitária única                                |
+| `curso_id`             | `string` | ✅          | UUID do curso acadêmico                                      |
+| `metas_horas_semanais` | `int`    | ✅          | Carga horária semanal obrigatória (ex: 12)                    |
 
-**Response (201):**
+**Response (201 Created):**
 ```json
 {
-  "mensagem": "Usuário registrado com sucesso.",
-  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...signature",
+  "mensagem": "Usuário registrado com sucesso. Aguardando aprovação do administrador.",
+  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tipo_token": "bearer",
-  "token_atualizacao": "def50200543e332...",
+  "token_atualizacao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "usuario": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "nome_completo": "João Silva",
     "email": "joao@exemplo.com",
     "matricula": "512345",
     "data_nascimento": "2000-01-01",
-    "data_ingresso": "2024-05-20",
+    "data_ingresso": "2026-08-21",
     "meta_horas_semanais": 12,
     "foto_perfil": "avatar_padrao.png",
     "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1"
+    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1",
+    "global_role": "2fa85f64-5717-4562-b3fc-2c963f66afa3"
   }
 }
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário                   | Exemplo de mensagem                                               |
-| ------ | ------------------------- | ----------------------------------------------------------------- |
-| `400`  | Senha fraca               | `"A senha deve conter no mínimo 8 caracteres, incluindo números e símbolos."` |
-| `400`  | Formato inválido          | `"O formato do e-mail é inválido."`                                |
-| `409`  | E-mail duplicado          | `"Este e-mail já está cadastrado no sistema."`                     |
-| `409`  | Matrícula duplicada       | `"Esta matrícula já pertence a outro usuário."`                    |
+- `400`: Senha fraca ou dados com formato inválido.
+- `409`: E-mail ou matrícula já cadastrados.
 
 ---
 
 ### 6.2. `POST /auth/login`
 
-> Autenticar usuário e obter tokens de acesso.
+> Autentica o usuário e retorna os tokens de acesso e dados do perfil.
 
 **Autenticação:** Não requer
 
@@ -221,19 +219,15 @@ interface ErroPadrao {
 }
 ```
 
-| Campo   | Tipo     | Obrigatório | Descrição           |
-| ------- | -------- | ----------- | ------------------- |
-| `email` | `string` | ✅          | E-mail do usuário    |
-| `senha` | `string` | ✅          | Senha do usuário     |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Login realizado com sucesso.",
-  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...signature",
+  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tipo_token": "bearer",
-  "token_atualizacao": "def50200543e332...",
+  "token_atualizacao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "usuario": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "nome_completo": "João Silva",
     "email": "joao@exemplo.com",
     "matricula": "512345",
@@ -242,84 +236,63 @@ interface ErroPadrao {
     "meta_horas_semanais": 12,
     "foto_perfil": "avatar_padrao.png",
     "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1"
+    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1",
+    "global_role": "2fa85f64-5717-4562-b3fc-2c963f66afa3"
   }
 }
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário                   | Exemplo de mensagem                                    |
-| ------ | ------------------------- | ------------------------------------------------------ |
-| `400`  | Campos ausentes           | `"Os campos de e-mail e senha são obrigatórios."`       |
-| `401`  | Credenciais inválidas     | `"E-mail ou senha incorretos. Tente novamente."`        |
+- `401`: Credenciais incorretas ou conta com status `inativo`.
 
 ---
 
 ### 6.3. `POST /auth/logout`
 
-> Encerrar sessão do usuário (invalidar refresh token).
+> Ponto de contato da API para encerramento de sessão do cliente. Em arquitetura JWT stateless, o frontend descarta os tokens locais.
 
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token>`
+**Autenticação:** Não requer
 
-**Request Body:** Nenhum
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Sessão encerrada com sucesso."
 }
 ```
 
-**Erros possíveis:**
-
-| Código | Cenário                   | Exemplo de mensagem                              |
-| ------ | ------------------------- | ------------------------------------------------ |
-| `401`  | Não autenticado           | `"Token de acesso ausente ou inválido."`          |
-
 ---
 
 ### 6.4. `POST /auth/refresh`
 
-> Renovar o token de acesso usando o refresh token.
+> Renova o token de acesso utilizando o refresh token.
 
-**Autenticação:** Não requer (usa o refresh token no body)
+**Autenticação:** Não requer (envia o refresh token no corpo)
 
 **Request Body:**
 ```json
 {
-  "token_atualizacao": "def50200543e332..."
+  "token_atualizacao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-| Campo               | Tipo     | Obrigatório | Descrição                              |
-| ------------------- | -------- | ----------- | -------------------------------------- |
-| `token_atualizacao` | `string` | ✅          | Refresh token obtido no login/registro  |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Token renovado com sucesso.",
-  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...novoToken",
+  "token_acesso": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tipo_token": "bearer",
-  "token_atualizacao": "ghi78900novoRefreshToken..."
+  "token_atualizacao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
-
-**Erros possíveis:**
-
-| Código | Cenário                   | Exemplo de mensagem                                          |
-| ------ | ------------------------- | ------------------------------------------------------------ |
-| `401`  | Token expirado            | `"O refresh token expirou. Faça login novamente."`            |
-| `401`  | Token inválido            | `"Refresh token inválido ou já utilizado."`                   |
 
 ---
 
 ### 6.5. `POST /auth/forgot-password`
 
-> Solicitar recuperação de senha (envio de código por e-mail).
+> Solicita a recuperação de senha gerando um código OTP de 6 dígitos enviado por e-mail (armazenado no Redis com TTL de 15 minutos).
 
-**Autenticação:** Não requer
+**Autenticação:** Não requer  
+**Rate Limit:** Máximo de 3 solicitações por e-mail a cada 15 min e 10 solicitações por IP a cada 15 min.
 
 **Request Body:**
 ```json
@@ -328,32 +301,26 @@ interface ErroPadrao {
 }
 ```
 
-| Campo   | Tipo     | Obrigatório | Descrição                          |
-| ------- | -------- | ----------- | ---------------------------------- |
-| `email` | `string` | ✅          | E-mail cadastrado do usuário        |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
 }
 ```
 
-> **Nota de segurança:** A API sempre retorna 200, mesmo se o e-mail não existir no banco, para não revelar quais e-mails estão cadastrados.
+> **Nota de Segurança:** A API sempre retorna status 200 com mensagem genérica (mesmo se o e-mail não existir) para evitar enumeração de contas por terceiros.
 
 **Erros possíveis:**
-
-| Código | Cenário          | Exemplo de mensagem                                    |
-| ------ | ---------------- | ------------------------------------------------------ |
-| `400`  | E-mail inválido  | `"O endereço de e-mail fornecido não é válido."`        |
+- `429`: Limite de solicitações atingido (por IP ou por e-mail).
 
 ---
 
 ### 6.6. `POST /auth/verify-code`
 
-> Validar o código numérico de 6 dígitos (OTP) enviado por e-mail.
+> Valida o código numérico OTP de 6 dígitos. Possui proteção contra ataques de força bruta.
 
-**Autenticação:** Não requer
+**Autenticação:** Não requer  
+**Segurança:** Máximo de 5 tentativas incorretas. Após o limite, o código é destruído e um cooldown de 15 minutos é aplicado.
 
 **Request Body:**
 ```json
@@ -363,47 +330,35 @@ interface ErroPadrao {
 }
 ```
 
-| Campo    | Tipo     | Obrigatório | Descrição                          |
-| -------- | -------- | ----------- | ---------------------------------- |
-| `email`  | `string` | ✅          | E-mail cadastrado do usuário        |
-| `codigo` | `string` | ✅          | Código de 6 dígitos recebido        |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Código validado com sucesso.",
-  "token_redefinicao": "abc123xyz890tokenTemporario"
+  "token_redefinicao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário                     | Exemplo de mensagem                                        |
-| ------ | --------------------------- | ---------------------------------------------------------- |
-| `401`  | Código inválido/expirado    | `"O código inserido é inválido ou já expirou."`             |
+- `401`: Código numérico inválido ou expirado.
+- `429`: Limite de tentativas atingido (cooldown ativo).
 
 ---
 
 ### 6.7. `POST /auth/reset-password`
 
-> Salvar nova senha usando o token de redefinição.
+> Define uma nova senha consumindo o `token_redefinicao` (com validade de 5 minutos gerado pelo endpoint de verificação de código).
 
-**Autenticação:** Não requer (usa token de redefinição no body)
+**Autenticação:** Não requer (usa token temporário no body)
 
 **Request Body:**
 ```json
 {
-  "token_redefinicao": "abc123xyz890tokenTemporario",
+  "token_redefinicao": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "nova_senha": "NovaSenhaSegura2026!"
 }
 ```
 
-| Campo               | Tipo     | Obrigatório | Descrição                                      |
-| ------------------- | -------- | ----------- | ---------------------------------------------- |
-| `token_redefinicao` | `string` | ✅          | Token obtido na etapa de verificação de código   |
-| `nova_senha`        | `string` | ✅          | Nova senha (mínimo 8 caracteres)                 |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Sua senha foi redefinida com sucesso. Você já pode realizar o login."
@@ -411,19 +366,16 @@ interface ErroPadrao {
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário            | Exemplo de mensagem                                                              |
-| ------ | ------------------ | -------------------------------------------------------------------------------- |
-| `400`  | Senha fraca        | `"A nova senha deve ser diferente da anterior e conter ao menos 8 caracteres."`   |
-| `401`  | Token expirado     | `"Sessão de redefinição expirada. Solicite um novo código."`                      |
+- `400`: A nova senha não atende aos requisitos de segurança ou é idêntica à senha atual.
+- `401`: Token de redefinição expirado ou inválido.
 
 ---
 
 ### 6.8. `PUT /auth/change-password`
 
-> Alterar senha do usuário autenticado.
+> Altera a senha do usuário autenticado, exigindo a confirmação da senha atual.
 
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token>`
+**Autenticação:** 🔒 Requer `Authorization: Bearer <token_acesso>`
 
 **Request Body:**
 ```json
@@ -433,12 +385,7 @@ interface ErroPadrao {
 }
 ```
 
-| Campo         | Tipo     | Obrigatório | Descrição                              |
-| ------------- | -------- | ----------- | -------------------------------------- |
-| `senha_atual` | `string` | ✅          | Senha atual para confirmação            |
-| `nova_senha`  | `string` | ✅          | Nova senha (mínimo 8 caracteres)        |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Senha alterada com sucesso."
@@ -446,21 +393,16 @@ interface ErroPadrao {
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário                    | Exemplo de mensagem                                                              |
-| ------ | -------------------------- | -------------------------------------------------------------------------------- |
-| `400`  | Senha fraca                | `"A nova senha deve conter no mínimo 8 caracteres, incluindo números e símbolos."` |
-| `400`  | Senha igual à anterior     | `"A nova senha deve ser diferente da senha atual."`                               |
-| `401`  | Senha atual incorreta      | `"A senha atual informada está incorreta."`                                       |
-| `401`  | Não autenticado            | `"Token de acesso ausente ou inválido."`                                          |
+- `400`: Nova senha idêntica à atual ou fora do padrão de complexidade.
+- `401`: Senha atual incorreta ou token ausente/inválido.
 
 ---
 
 ### 6.9. `DELETE /auth/account`
 
-> Excluir conta permanentemente (ação irreversível).
+> Realiza o *soft delete* (desativação lógica) da conta do próprio usuário autenticado.
 
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token>`
+**Autenticação:** 🔒 Requer `Authorization: Bearer <token_acesso>`
 
 **Request Body:**
 ```json
@@ -469,39 +411,32 @@ interface ErroPadrao {
 }
 ```
 
-| Campo   | Tipo     | Obrigatório | Descrição                                    |
-| ------- | -------- | ----------- | -------------------------------------------- |
-| `senha` | `string` | ✅          | Senha atual para confirmação da exclusão      |
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
-  "mensagem": "Sua conta foi excluída permanentemente."
+  "mensagem": "Sua conta foi desativada com sucesso."
 }
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário              | Exemplo de mensagem                                                       |
-| ------ | -------------------- | ------------------------------------------------------------------------- |
-| `401`  | Senha incorreta      | `"A senha informada está incorreta. A conta não foi excluída."`            |
-| `401`  | Não autenticado      | `"Token de acesso ausente ou inválido."`                                  |
+- `401`: Senha incorreta ou token inválido.
 
 ---
 
-### 6.10. `GET /users/me`
+## 7. Endpoints — Perfil do Usuário (`/users`)
 
-> Obter perfil do usuário autenticado.
+### 7.1. `GET /users/me`
 
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token>`
+> Retorna os dados completos do perfil do usuário autenticado.
 
-**Request Body:** Nenhum
+**Autenticação:** 🔒 Requer `Authorization: Bearer <token_acesso>`
 
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Perfil obtido com sucesso.",
   "usuario": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "nome_completo": "João Silva",
     "email": "joao@exemplo.com",
     "matricula": "512345",
@@ -510,79 +445,242 @@ interface ErroPadrao {
     "meta_horas_semanais": 12,
     "foto_perfil": "avatar_padrao.png",
     "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1"
+    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1",
+    "global_role": "2fa85f64-5717-4562-b3fc-2c963f66afa3"
   }
 }
 ```
 
-**Erros possíveis:**
-
-| Código | Cenário           | Exemplo de mensagem                              |
-| ------ | ----------------- | ------------------------------------------------ |
-| `401`  | Não autenticado   | `"Token de acesso ausente ou inválido."`          |
-
 ---
 
-### 6.11. `PUT /users/me`
+### 7.2. `PUT /users/me`
 
-> Atualizar perfil do usuário autenticado (nome e/ou avatar).
+> Atualiza informações do perfil (nome, e-mail e/ou avatar). Todos os campos são opcionais.
 
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token>`
+**Autenticação:** 🔒 Requer `Authorization: Bearer <token_acesso>`
 
 **Request Body:**
 ```json
 {
   "nome_completo": "João Pedro Silva",
+  "email": "joao.novo@exemplo.com",
   "foto_perfil": "avatar_joao_2026.png"
 }
 ```
 
-| Campo           | Tipo     | Obrigatório | Descrição                                  |
-| --------------- | -------- | ----------- | ------------------------------------------ |
-| `nome_completo` | `string` | ❌          | Novo nome (se omitido, permanece o atual)   |
-| `foto_perfil`   | `string` | ❌          | Novo avatar (se omitido, permanece o atual) |
-
-> **Nota:** Ambos os campos são opcionais. Envie apenas os que deseja alterar.
-
-**Response (200):**
+**Response (200 OK):**
 ```json
 {
   "mensagem": "Perfil atualizado com sucesso.",
   "usuario": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "nome_completo": "João Pedro Silva",
-    "email": "joao@exemplo.com",
+    "email": "joao.novo@exemplo.com",
     "matricula": "512345",
     "data_nascimento": "2000-01-01",
     "data_ingresso": "2024-05-20",
     "meta_horas_semanais": 12,
     "foto_perfil": "avatar_joao_2026.png",
     "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1"
+    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1",
+    "global_role": "2fa85f64-5717-4562-b3fc-2c963f66afa3"
   }
 }
 ```
 
 **Erros possíveis:**
-
-| Código | Cenário           | Exemplo de mensagem                                         |
-| ------ | ----------------- | ----------------------------------------------------------- |
-| `401`  | Não autenticado   | `"Token de acesso ausente ou inválido."`                     |
-| `422`  | Validação         | `"O nome completo não pode ser uma string vazia."`           |
+- `401`: Token ausente ou inválido.
+- `409`: O novo e-mail já pertence a outro usuário cadastrado.
 
 ---
 
-## Interfaces TypeScript (Referência para o Frontend)
+## 8. Endpoints — Dados Gerais de Domínio (`/domain`)
 
-Abaixo, as interfaces TypeScript correspondentes aos schemas do backend para facilitar a criação de tipos no frontend:
+### 8.1. `GET /domain/cursos`
+
+> Lista todos os cursos acadêmicos cadastrados no sistema.
+
+**Autenticação:** Não requer
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": "3a9b258f-4bd4-4699-84b4-97308f32cecf",
+    "nome": "Engenharia de Software",
+    "ativo": true
+  },
+  {
+    "id": "69224513-2b4e-44f6-847d-236a8a3d5cae",
+    "nome": "Ciência da Computação",
+    "ativo": true
+  }
+]
+```
+
+---
+
+## 9. Endpoints — Administração e RBAC (`/admin`)
+
+Todos os endpoints deste módulo exigem nível de permissão administrativo (`admin` ou `super_admin`), com exceção de deleção geral que exige `super_admin`.
+
+### 9.1. `GET /admin/users`
+
+> Listagem paginada e filtrável de todos os usuários com dados relacionais resolvidos (`curso_nome`, `status_nome`, `role_nome`).
+
+**Autenticação:** 🔒 Requer cargo `admin` ou `super_admin`
+
+**Query Parameters:**
+| Parâmetro | Tipo | Padrão | Descrição |
+|---|---|---|---|
+| `pagina` | `int` | `1` | Número da página (inicia em 1) |
+| `limite` | `int` | `20` | Itens por página (máx: 100) |
+| `status` | `string` | `null` | Filtrar por status (`ativo`, `pendente`, `inativo`) |
+| `role` | `string` | `null` | Filtrar por cargo (`super_admin`, `admin`, `aluno`) |
+| `busca` | `string` | `null` | Busca por nome ou e-mail (case-insensitive) |
+
+**Response (200 OK):**
+```json
+{
+  "usuarios": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "nome_completo": "João Silva",
+      "email": "joao@exemplo.com",
+      "matricula": "512345",
+      "data_ingresso": "2024-05-20",
+      "foto_perfil": "avatar_padrao.png",
+      "curso_nome": "Engenharia de Software",
+      "status_nome": "ativo",
+      "role_nome": "aluno"
+    }
+  ],
+  "total": 42,
+  "pagina": 1,
+  "limite": 20
+}
+```
+
+---
+
+### 9.2. `GET /admin/users/pending`
+
+> Retorna a lista de usuários com cadastro pendente aguardando aprovação.
+
+**Autenticação:** 🔒 Requer cargo `admin` ou `super_admin`
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "nome_completo": "Maria Oliveira",
+    "email": "maria@exemplo.com",
+    "matricula": "512346",
+    "data_nascimento": "2001-03-15",
+    "data_ingresso": "2026-08-21",
+    "meta_horas_semanais": 12,
+    "foto_perfil": "avatar_padrao.png",
+    "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status_id": "1fa85f64-5717-4562-b3fc-2c963f66afa1",
+    "global_role": "2fa85f64-5717-4562-b3fc-2c963f66afa3"
+  }
+]
+```
+
+---
+
+### 9.3. `PATCH /admin/users/{user_id}/status`
+
+> Aprova ou altera o status de um usuário.
+
+**Autenticação:** 🔒 Requer cargo `admin` ou `super_admin`  
+**Regra de Segurança:** Administrador comum não pode alterar o status de um `super_admin`.
+
+**Request Body:**
+```json
+{
+  "novo_status": "ativo"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "mensagem": "Status do usuário alterado para ativo com sucesso."
+}
+```
+
+**Erros possíveis:**
+- `400`: Status inválido (valores permitidos: `"ativo"`, `"inativo"`).
+- `403`: Tentativa de alterar status de um `super_admin` por um admin comum.
+- `404`: Usuário não encontrado.
+
+---
+
+### 9.4. `PATCH /admin/users/{user_id}/role`
+
+> Altera o cargo de um usuário.
+
+**Autenticação:** 🔒 Requer cargo `admin` ou `super_admin`  
+**Regras de Negócio e Proteções:**
+- Só é possível alterar cargo de membros com status `ativo`.
+- Auto-rebaixamento é proibido (um admin não pode alterar seu próprio cargo).
+- Um `admin` comum não pode alterar um `super_admin`.
+- Proteção do último admin: O sistema impede o rebaixamento caso reste apenas 1 administrador ativo.
+
+**Request Body:**
+```json
+{
+  "role_nome": "admin"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "mensagem": "Cargo do usuário alterado para 'admin' com sucesso."
+}
+```
+
+**Erros possíveis:**
+- `400`: Cargo inválido (`super_admin`, `admin`, `aluno`) ou usuário não ativo.
+- `403`: Auto-alteração ou falta de privilégio para alterar outro `super_admin`.
+- `404`: Usuário não encontrado.
+- `409`: Tentativa de rebaixar o único administrador ativo do sistema.
+
+---
+
+### 9.5. `DELETE /admin/users/{user_id}`
+
+> Inativa (soft delete) qualquer usuário ou administrador do sistema.
+
+**Autenticação:** 🔒 Requer cargo `super_admin`
+
+**Response (200 OK):**
+```json
+{
+  "mensagem": "Usuário excluído (inativado) com sucesso."
+}
+```
+
+---
+
+## 10. Interfaces TypeScript (Referência para o Frontend)
 
 ```typescript
-// ── Modelos base ────────────────────────────────────────────
+// ── Modelos Base ────────────────────────────────────────────
 
-interface ErroPadrao {
+export interface ErroPadrao {
   mensagem: string;
 }
 
-interface UsuarioCompleto {
+export interface MensagemResponse {
+  mensagem: string;
+}
+
+export interface UsuarioCompleto {
+  id: string;              // UUID
   nome_completo: string;
   email: string;
   matricula: string;
@@ -592,88 +690,118 @@ interface UsuarioCompleto {
   foto_perfil: string;
   curso_id: string;        // UUID
   status_id: string;       // UUID
+  global_role: string;     // UUID
 }
 
-// ── Auth — Requests ─────────────────────────────────────────
+export interface CursoResumo {
+  id: string;              // UUID
+  nome: string;
+  ativo: boolean;
+}
 
-interface RegisterRequest {
+// ── Auth — Requests & Responses ─────────────────────────────
+
+export interface RegisterRequest {
   nome_completo: string;
   email: string;
   senha: string;
   data_nascimento: string;
   matricula: string;
   curso_id: string;
+  metas_horas_semanais: number;
 }
 
-interface LoginRequest {
+export interface LoginRequest {
   email: string;
   senha: string;
 }
 
-interface ForgotPasswordRequest {
+export interface AuthTokenResponse {
+  mensagem: string;
+  token_acesso: string;
+  tipo_token: string;
+  token_atualizacao: string;
+  usuario: UsuarioCompleto;
+}
+
+export interface ForgotPasswordRequest {
   email: string;
 }
 
-interface VerifyCodeRequest {
+export interface VerifyCodeRequest {
   email: string;
   codigo: string;
 }
 
-interface ResetPasswordRequest {
+export interface VerifyCodeResponse {
+  mensagem: string;
+  token_redefinicao: string;
+}
+
+export interface ResetPasswordRequest {
   token_redefinicao: string;
   nova_senha: string;
 }
 
-interface RefreshTokenRequest {
-  token_atualizacao: string;
-}
-
-interface ChangePasswordRequest {
+export interface ChangePasswordRequest {
   senha_atual: string;
   nova_senha: string;
 }
 
-interface DeleteAccountRequest {
+export interface RefreshTokenRequest {
+  token_atualizacao: string;
+}
+
+export interface RefreshTokenResponse {
+  mensagem: string;
+  token_acesso: string;
+  tipo_token: string;
+  token_atualizacao: string;
+}
+
+export interface DeleteAccountRequest {
   senha: string;
 }
 
-// ── Auth — Responses ────────────────────────────────────────
+// ── Users — Requests & Responses ────────────────────────────
 
-interface AuthTokenResponse {
-  mensagem: string;
-  token_acesso: string;
-  tipo_token: string;
-  token_atualizacao: string;
-  usuario: UsuarioCompleto;
-}
-
-interface MensagemResponse {
-  mensagem: string;
-}
-
-interface VerifyCodeResponse {
-  mensagem: string;
-  token_redefinicao: string;
-}
-
-interface RefreshTokenResponse {
-  mensagem: string;
-  token_acesso: string;
-  tipo_token: string;
-  token_atualizacao: string;
-}
-
-// ── Users — Requests ────────────────────────────────────────
-
-interface UpdateProfileRequest {
+export interface UpdateProfileRequest {
   nome_completo?: string;
+  email?: string;
   foto_perfil?: string;
 }
 
-// ── Users — Responses ───────────────────────────────────────
-
-interface UsuarioPerfilResponse {
+export interface UsuarioPerfilResponse {
   mensagem: string;
   usuario: UsuarioCompleto;
+}
+
+// ── Admin — Requests & Responses ────────────────────────────
+
+export interface UsuarioListItem {
+  id: string;
+  nome_completo: string;
+  email: string;
+  matricula: string;
+  data_ingresso: string;
+  foto_perfil: string;
+  curso_nome: string;
+  status_nome: string;
+  role_nome: string;
+}
+
+export interface UsuarioListResponse {
+  usuarios: UsuarioListItem[];
+  total: number;
+  pagina: number;
+  limite: number;
+}
+
+export interface ChangeStatusRequest {
+  novo_status: "ativo" | "inativo";
+}
+
+export interface ChangeRoleRequest {
+  role_nome: "super_admin" | "admin" | "aluno";
 }
 ```
