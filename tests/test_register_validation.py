@@ -117,6 +117,70 @@ class TestRegisterValidation(unittest.TestCase):
                     )
                 self.assertIn("O nome completo deve conter apenas letras", str(ctx.exception))
 
+    def test_data_nascimento_valida(self):
+        """Idades válidas (ex: 20 anos, 35 anos, 15 anos) devem ser aceitas."""
+        datas_validas = [
+            date(2000, 1, 1),
+            date(1990, 5, 20),
+            date(2008, 1, 1),
+        ]
+        for d in datas_validas:
+            with self.subTest(data=d):
+                req = RegisterRequest(
+                    nome_completo="João Silva",
+                    email="joao@exemplo.com",
+                    senha="SenhaForte123!",
+                    data_nascimento=d,
+                    matricula="512345",
+                    curso_id=uuid4(),
+                    metas_horas_semanais=12,
+                )
+                self.assertEqual(req.data_nascimento, d)
+
+    def test_data_nascimento_invalida_futura(self):
+        """BUG-003 (b): Data no futuro deve ser rejeitada."""
+        amanha = date.today().replace(year=date.today().year + 1)
+        with self.assertRaises(ValidationError) as ctx:
+            RegisterRequest(
+                nome_completo="João Silva",
+                email="joao@exemplo.com",
+                senha="SenhaForte123!",
+                data_nascimento=amanha,
+                matricula="512345",
+                curso_id=uuid4(),
+                metas_horas_semanais=12,
+            )
+        self.assertIn("A data de nascimento não pode ser uma data futura.", str(ctx.exception))
+
+    def test_data_nascimento_invalida_menor_de_14_anos(self):
+        """BUG-003 (a): Idade menor que 14 anos (~10 anos) deve ser rejeitada."""
+        dez_anos_atras = date.today().replace(year=date.today().year - 10)
+        with self.assertRaises(ValidationError) as ctx:
+            RegisterRequest(
+                nome_completo="João Silva",
+                email="joao@exemplo.com",
+                senha="SenhaForte123!",
+                data_nascimento=dez_anos_atras,
+                matricula="512345",
+                curso_id=uuid4(),
+                metas_horas_semanais=12,
+            )
+        self.assertIn("mínimo 14 anos de idade", str(ctx.exception))
+
+    def test_data_nascimento_invalida_ano_anterior_a_1900(self):
+        """BUG-003 (c): Data muito antiga (ex: ano 1826 / ~200 anos) deve ser rejeitada."""
+        with self.assertRaises(ValidationError) as ctx:
+            RegisterRequest(
+                nome_completo="João Silva",
+                email="joao@exemplo.com",
+                senha="SenhaForte123!",
+                data_nascimento=date(1826, 1, 1),
+                matricula="512345",
+                curso_id=uuid4(),
+                metas_horas_semanais=12,
+            )
+        self.assertIn("ano de nascimento deve ser a partir de 1900", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

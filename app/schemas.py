@@ -171,8 +171,24 @@ class RegisterRequest(BaseModel):
         return v
     data_nascimento: date = Field(
         ...,
+        description="Data de nascimento do usuário.",
         examples=["2000-01-01"],
     )
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validar_data_nascimento(cls, v: date) -> date:
+        hoje = date.today()
+        if v > hoje:
+            raise ValueError("A data de nascimento não pode ser uma data futura.")
+        if v.year < 1900:
+            raise ValueError("O ano de nascimento deve ser a partir de 1900.")
+        idade = hoje.year - v.year - ((hoje.month, hoje.day) < (v.month, v.day))
+        if idade < 14:
+            raise ValueError("O usuário deve ter no mínimo 14 anos de idade para se cadastrar.")
+        if idade > 120:
+            raise ValueError("Data de nascimento inválida (idade máxima excedida).")
+        return v
     matricula: str = Field(
         ...,
         description="Matrícula da universidade (exatamente 6 dígitos numéricos).",
