@@ -14,6 +14,7 @@ O serviço centraliza weeklies, controle de ponto e acompanhamento de presenças
 | ORM            | SQLAlchemy 2.x              |
 | Migrações      | Alembic                     |
 | Banco de Dados | PostgreSQL 15+ (Docker)     |
+| Cache / OTP    | Redis 7+ (Docker)           |
 | Servidor ASGI  | Uvicorn                     |
 
 ---
@@ -65,14 +66,14 @@ Edite o `.env` gerado e substitua os placeholders — em especial `POSTGRES_PASS
 
 ### 5. Iniciar a aplicação (Modo Automatizado)
 
-Para facilitar o desenvolvimento local, foi criado um script unificado que inicializa o banco de dados Docker, aplica as migrações do Alembic e sobe a API. Basta rodar:
+Para facilitar o desenvolvimento local, foi criado um script unificado que inicializa os containers Docker (PostgreSQL, pgAdmin, Redis), aplica as migrações do Alembic e sobe a API. Basta rodar:
 
 ```bash
 python run.py
 ```
 
 * **API**: [http://localhost:8000](http://localhost:8000)
-* **Documentação (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Documentação Interativa (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Health Check**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
 #### Autenticação no Swagger UI:
@@ -85,41 +86,37 @@ python run.py
 
 ---
 
-## Gestão de Membros e Permissões (RBAC)
+## Documentação Detalhada
 
-Endpoints protegidos para administradores (`admin` e `super_admin`) gerenciarem a equipe:
+Para especificações técnicas aprofundadas, consulte os documentos na pasta [`docs/`](docs/):
 
-| Método | Endpoint | Acesso | Descrição |
-| ------ | -------- | ------ | --------- |
-| `GET` | `/admin/users` | Admin / Super Admin | Listagem paginada (`pagina`, `limite`), com busca por nome/email (`busca`) e filtros (`status`, `role`). Retorna dados completos dos membros com nomes de curso, status e cargo resolvidos. |
-| `GET` | `/admin/users/pending` | Admin / Super Admin | Lista usuários com cadastro pendente aguardando aprovação. |
-| `PATCH` | `/admin/users/{user_id}/role` | Admin / Super Admin | Altera o cargo de um membro (`super_admin`, `admin`, `aluno`). Impedimentos: `admin` comum não pode alterar `super_admin`, auto-rebaixamento é proibido, e o último admin do sistema não pode ser rebaixado. |
-| `PATCH` | `/admin/users/{user_id}/status` | Admin / Super Admin | Aprova ou altera o status de um membro (`ativo`, `inativo`). |
-| `DELETE` | `/admin/users/{user_id}` | Super Admin | Inativa (soft delete) qualquer usuário no sistema. |
+- 📄 [**Contrato da API (`docs/api_contract.md`)**](docs/api_contract.md): Especificação de endpoints, formato de payloads (request/response), status HTTP e interfaces TypeScript para integração com o frontend.
+- 🔐 [**Módulo de Identidade e RBAC (`docs/modulo_identidade.md`)**](docs/modulo_identidade.md): Fluxo de aprovação de contas, controle de acesso baseado em papéis (`super_admin`, `admin`, `aluno`), soft deletes e recuperação de senha (OTP via Redis).
+- 🏗️ [**Infraestrutura Base (`docs/infraestrutura_base.md`)**](docs/infraestrutura_base.md): Detalhes sobre conexão com PostgreSQL (Psycopg 3), gerenciamento de sessões, cache Redis, serviço de e-mails SMTP e automação com `run.py`.
 
 ---
 
-## Estrutura de diretórios (sugerida)
+## Estrutura do Projeto
 
-```
+```text
 sistema-weeklies-backend/
-├── alembic/              # Configuração e versões de migrações
+├── alembic/              # Configurações e versões de migrações
 ├── app/
-│   ├── __init__.py
-│   ├── main.py           # Entrypoint FastAPI
-│   ├── config.py         # Carregamento de variáveis de ambiente
+│   ├── models/           # Modelos ORM (User, Role, Status, Course...)
+│   ├── routers/          # Endpoints agrupados por domínio (auth, users, admin, domain)
+│   ├── utils/            # Utilitários (segurança, envio de e-mail, etc.)
+│   ├── config.py         # Configurações centralizadas via pydantic-settings
 │   ├── database.py       # Engine e SessionLocal do SQLAlchemy
-│   ├── models/           # Modelos ORM (User, Weekly, Attendance…)
-│   ├── schemas/          # Schemas Pydantic (request/response)
-│   ├── routers/          # Endpoints agrupados por domínio
-│   ├── services/         # Regras de negócio
-│   └── utils/            # Helpers (hashing, JWT, etc.)
-├── .env                  # Variáveis de ambiente (não versionado)
-├── .env.example          # Modelo de variáveis de ambiente (versionado)
-├── .gitignore
-├── alembic.ini
-├── requirements.txt
-└── README.md
+│   ├── deps.py           # Injeção de dependências e autenticação JWT/RBAC
+│   ├── main.py           # Entrypoint da aplicação FastAPI
+│   ├── redis.py          # Conexão e rotinas assíncronas do Redis (OTP/Rate limit)
+│   └── schemas.py        # Schemas de validação e serialização (Pydantic)
+├── docs/                 # Documentação técnica do projeto
+├── scripts/              # Utilitários CLI (ex: criação do primeiro super admin)
+├── .env.example          # Modelo de variáveis de ambiente
+├── docker-compose.yml    # Serviços locais (PostgreSQL, pgAdmin, Redis)
+├── requirements.txt      # Dependências Python
+└── run.py                # Script unificado de inicialização local
 ```
 
 ---
@@ -128,11 +125,12 @@ sistema-weeklies-backend/
 
 | Comando                                        | Descrição                          |
 | ---------------------------------------------- | ---------------------------------- |
-| `uvicorn app.main:app --reload`                | Servidor de desenvolvimento        |
+| `python run.py`                                | Sobe infra Docker, migrações e API |
+| `uvicorn app.main:app --reload`                | Servidor de desenvolvimento isolado|
 | `alembic revision --autogenerate -m "msg"`     | Gerar nova migration               |
 | `alembic upgrade head`                         | Aplicar migrações pendentes        |
 | `alembic downgrade -1`                         | Reverter última migration          |
-| `pytest`                                       | Rodar testes (quando configurados) |
+| `pytest`                                       | Rodar testes automatizados         |
 
 ---
 
