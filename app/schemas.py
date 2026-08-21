@@ -27,6 +27,19 @@ _SENHA_MSG = (
     "letra maiúscula, letra minúscula, número e caractere especial."
 )
 
+_MATRICULA_REGEX = re.compile(r"^\d{6}$")
+_MATRICULA_MSG = "A matrícula deve conter exatamente 6 dígitos numéricos."
+
+_NOME_REGEX = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$")
+_NOME_MSG = "O nome completo deve conter apenas letras, acentos e espaços, e possuir ao menos nome e sobrenome."
+
+
+def _validar_nome_completo(v: str) -> str:
+    v = v.strip()
+    if not v or not _NOME_REGEX.match(v) or len(v.split()) < 2:
+        raise ValueError(_NOME_MSG)
+    return v
+
 
 # ────────────────────────────────────────────
 # Schemas reutilizáveis (components/schemas)
@@ -131,9 +144,15 @@ class RegisterRequest(BaseModel):
 
     nome_completo: str = Field(
         ...,
-        description="Nome completo do usuário.",
+        description="Nome completo do usuário (ao menos nome e sobrenome).",
         examples=["João Silva"],
     )
+
+    @field_validator("nome_completo")
+    @classmethod
+    def validar_nome_completo(cls, v: str) -> str:
+        return _validar_nome_completo(v)
+
     email: EmailStr = Field(
         ...,
         examples=["joao@exemplo.com"],
@@ -150,15 +169,42 @@ class RegisterRequest(BaseModel):
         if not _SENHA_REGEX.match(v):
             raise ValueError(_SENHA_MSG)
         return v
+
     data_nascimento: date = Field(
         ...,
+        description="Data de nascimento do usuário.",
         examples=["2000-01-01"],
     )
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validar_data_nascimento(cls, v: date) -> date:
+        hoje = date.today()
+        if v > hoje:
+            raise ValueError("A data de nascimento não pode ser uma data futura.")
+        if v.year < 1900:
+            raise ValueError("O ano de nascimento deve ser a partir de 1900.")
+        idade = hoje.year - v.year - ((hoje.month, hoje.day) < (v.month, v.day))
+        if idade < 14:
+            raise ValueError("O usuário deve ter no mínimo 14 anos de idade para se cadastrar.")
+        if idade > 120:
+            raise ValueError("Data de nascimento inválida (idade máxima excedida).")
+        return v
+
     matricula: str = Field(
         ...,
-        description="Matrícula da universidade.",
+        description="Matrícula da universidade (exatamente 6 dígitos numéricos).",
         examples=["512345"],
     )
+
+    @field_validator("matricula")
+    @classmethod
+    def validar_matricula(cls, v: str) -> str:
+        v = v.strip()
+        if not _MATRICULA_REGEX.match(v):
+            raise ValueError(_MATRICULA_MSG)
+        return v
+
     curso_id: UUID = Field(
         ...,
         description="UUID do curso acadêmico do aluno.",
@@ -463,6 +509,14 @@ class UpdateProfileRequest(BaseModel):
         description="Novo nome completo do usuário.",
         examples=["João Pedro Silva"],
     )
+
+    @field_validator("nome_completo")
+    @classmethod
+    def validar_nome_completo(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validar_nome_completo(v)
+        return v
+
     email: EmailStr | None = Field(
         None,
         description="Novo endereço de e-mail do usuário.",
