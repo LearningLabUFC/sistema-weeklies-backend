@@ -55,6 +55,68 @@ class TestRegisterValidation(unittest.TestCase):
                     )
                 self.assertIn("A matrícula deve conter exatamente 6 dígitos numéricos.", str(ctx.exception))
 
+    def test_nome_completo_valido(self):
+        """Nomes compostos com acentos, apóstrofos e hífens devem ser aceitos."""
+        nomes_validos = [
+            "João Silva",
+            "Maria de Fátima",
+            "Jean-Paul Sartre",
+            "Luís d'Ávila",
+            "Ana Cláudia Gonçalves da Costa",
+        ]
+        for nome in nomes_validos:
+            with self.subTest(nome=nome):
+                req = RegisterRequest(
+                    nome_completo=nome,
+                    email="joao@exemplo.com",
+                    senha="SenhaForte123!",
+                    data_nascimento=date(2000, 1, 1),
+                    matricula="512345",
+                    curso_id=uuid4(),
+                    metas_horas_semanais=12,
+                )
+                self.assertEqual(req.nome_completo, nome.strip())
+
+    def test_nome_completo_invalido_numeros_e_simbolos(self):
+        """BUG-002: Nomes contendo números e caracteres especiais devem ser rejeitados."""
+        nomes_invalidos = [
+            "João123!@#",
+            "Carlos Eduardo 2",
+            "Ana_Paula",
+            "Lucas # Santos",
+            "Pedro $ Silva",
+        ]
+        for nome in nomes_invalidos:
+            with self.subTest(nome=nome):
+                with self.assertRaises(ValidationError) as ctx:
+                    RegisterRequest(
+                        nome_completo=nome,
+                        email="joao@exemplo.com",
+                        senha="SenhaForte123!",
+                        data_nascimento=date(2000, 1, 1),
+                        matricula="512345",
+                        curso_id=uuid4(),
+                        metas_horas_semanais=12,
+                    )
+                self.assertIn("O nome completo deve conter apenas letras", str(ctx.exception))
+
+    def test_nome_completo_invalido_apenas_um_nome_ou_vazio(self):
+        """Nomes com apenas uma palavra ou vazios devem ser rejeitados."""
+        nomes_invalidos = ["João", "Maria", "", "   "]
+        for nome in nomes_invalidos:
+            with self.subTest(nome=nome):
+                with self.assertRaises(ValidationError) as ctx:
+                    RegisterRequest(
+                        nome_completo=nome,
+                        email="joao@exemplo.com",
+                        senha="SenhaForte123!",
+                        data_nascimento=date(2000, 1, 1),
+                        matricula="512345",
+                        curso_id=uuid4(),
+                        metas_horas_semanais=12,
+                    )
+                self.assertIn("O nome completo deve conter apenas letras", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

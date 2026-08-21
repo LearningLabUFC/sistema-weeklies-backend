@@ -30,6 +30,16 @@ _SENHA_MSG = (
 _MATRICULA_REGEX = re.compile(r"^\d{6}$")
 _MATRICULA_MSG = "A matrícula deve conter exatamente 6 dígitos numéricos."
 
+_NOME_REGEX = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$")
+_NOME_MSG = "O nome completo deve conter apenas letras, acentos e espaços, e possuir ao menos nome e sobrenome."
+
+
+def _validar_nome_completo(v: str) -> str:
+    v = v.strip()
+    if not v or not _NOME_REGEX.match(v) or len(v.split()) < 2:
+        raise ValueError(_NOME_MSG)
+    return v
+
 
 # ────────────────────────────────────────────
 # Schemas reutilizáveis (components/schemas)
@@ -134,9 +144,15 @@ class RegisterRequest(BaseModel):
 
     nome_completo: str = Field(
         ...,
-        description="Nome completo do usuário.",
+        description="Nome completo do usuário (ao menos nome e sobrenome).",
         examples=["João Silva"],
     )
+
+    @field_validator("nome_completo")
+    @classmethod
+    def validar_nome_completo(cls, v: str) -> str:
+        return _validar_nome_completo(v)
+
     email: EmailStr = Field(
         ...,
         examples=["joao@exemplo.com"],
@@ -474,6 +490,14 @@ class UpdateProfileRequest(BaseModel):
         description="Novo nome completo do usuário.",
         examples=["João Pedro Silva"],
     )
+
+    @field_validator("nome_completo")
+    @classmethod
+    def validar_nome_completo(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validar_nome_completo(v)
+        return v
+
     email: EmailStr | None = Field(
         None,
         description="Novo endereço de e-mail do usuário.",
