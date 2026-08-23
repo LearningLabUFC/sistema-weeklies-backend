@@ -1,0 +1,8 @@
+# Configuração do Ruff (linter Python)
+# Docs: https://docs.astral.sh/ruff/configuration/
+
+[lint]
+# B008: Ignora chamadas de função em argumentos padrão.
+#       O FastAPI usa Depends() nos parâmetros por design (injeção de dependência).
+#       Isso é um falso positivo no contexto do FastAPI.
+ignore = ["B008"]

@@ -1,7 +1,7 @@
 import os
 import sys
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 
 # Adiciona o diretório raiz ao path para poder importar o app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -50,7 +50,7 @@ def create_super_admin():
             senha_hash=hash_senha("Admin@123"),
             matricula="000000",
             data_nascimento=date(1990, 1, 1),
-            data_ingresso=date.today(),
+            data_ingresso=datetime.now(tz=timezone.utc).date(),
             meta_horas_semanais=0,
             foto_perfil="avatar_padrao.png",
             curso_id=curso.id,
@@ -64,7 +64,7 @@ def create_super_admin():
         print(f"📧 E-mail: {novo_admin.email}")
         print("🔑 Senha: Admin@123")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"❌ Erro ao criar super_admin: {e}")
         db.rollback()
     finally:

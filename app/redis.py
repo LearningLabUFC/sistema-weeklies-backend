@@ -111,9 +111,7 @@ async def verificar_rate_limit_email(email: str) -> bool:
     chave = f"{_RATE_LIMIT_PREFIX}:{email}"
     contagem = await r.get(chave)
 
-    if contagem is not None and int(contagem) >= settings.FORGOT_PASSWORD_MAX_REQUESTS:
-        return False
-    return True
+    return not (contagem is not None and int(contagem) >= settings.FORGOT_PASSWORD_MAX_REQUESTS)
 
 
 async def incrementar_rate_limit_email(email: str) -> None:
@@ -137,9 +135,7 @@ async def verificar_rate_limit_ip(ip: str) -> bool:
     chave = f"{_RATE_LIMIT_IP_PREFIX}:{ip}"
     contagem = await r.get(chave)
 
-    if contagem is not None and int(contagem) >= 10:
-        return False
-    return True
+    return not (contagem is not None and int(contagem) >= 10)
 
 
 async def incrementar_rate_limit_ip(ip: str) -> None:

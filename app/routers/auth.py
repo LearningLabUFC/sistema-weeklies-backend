@@ -5,7 +5,7 @@ Endpoints: register, login, forgot-password, verify-code, reset-password.
 """
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -130,7 +130,7 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         senha_hash=hash_senha(body.senha),
         matricula=body.matricula,
         data_nascimento=body.data_nascimento,
-        data_ingresso=date.today(),
+        data_ingresso=datetime.now(tz=timezone.utc).date(),
         meta_horas_semanais=body.metas_horas_semanais,
         foto_perfil="avatar_padrao.png",
         curso_id=body.curso_id,

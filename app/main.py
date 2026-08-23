@@ -82,7 +82,7 @@ async def health_check():
         db.execute(text("SELECT 1"))
         db.close()
         return {"status": "healthy", "database": "connected"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(
             status_code=503,
             content={"status": "unhealthy",

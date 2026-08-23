@@ -8,7 +8,7 @@ definido no arquivo douglaslima-b57-Sistema-LL-1.0.0-unresolved.json.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -178,7 +178,7 @@ class RegisterRequest(BaseModel):
     @field_validator("data_nascimento")
     @classmethod
     def validar_data_nascimento(cls, v: date) -> date:
-        hoje = date.today()
+        hoje = datetime.now(tz=timezone.utc).date()
         if v > hoje:
             raise ValueError("A data de nascimento não pode ser uma data futura.")
         if v.year < 1900:

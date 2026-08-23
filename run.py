@@ -35,6 +35,7 @@ def encontrar_docker_compose():
         resultado = subprocess.run(
             ["docker", "compose", "version"],
             capture_output=True,
+            check=False,
         )
         if resultado.returncode == 0:
             return ["docker", "compose"]
@@ -102,7 +103,7 @@ def main():
         try:
             executar_comando_shell(docker_compose + ["down"])
             print("✅ Containers parados com sucesso.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"⚠️ Não foi possível parar os containers automaticamente: {e}")
 
 

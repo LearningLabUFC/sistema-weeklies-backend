@@ -3,7 +3,7 @@ Testes unitários para validações do schema de cadastro (RegisterRequest).
 Compatível com unittest (stdlib) e pytest.
 """
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -120,7 +120,7 @@ class TestRegisterValidation(unittest.TestCase):
 
     def test_data_nascimento_valida(self):
         """Idades válidas (ex: 20 anos, 35 anos, 15 anos) devem ser aceitas."""
-        hoje = date.today()
+        hoje = datetime.now(tz=timezone.utc).date()
         datas_validas = [
             hoje.replace(year=hoje.year - 20),   # 20 anos
             hoje.replace(year=hoje.year - 35),   # 35 anos
@@ -141,7 +141,7 @@ class TestRegisterValidation(unittest.TestCase):
 
     def test_data_nascimento_invalida_futura(self):
         """BUG-003 (b): Data no futuro deve ser rejeitada."""
-        amanha = date.today().replace(year=date.today().year + 1)
+        amanha = datetime.now(tz=timezone.utc).date().replace(year=datetime.now(tz=timezone.utc).date().year + 1)
         with self.assertRaises(ValidationError) as ctx:
             RegisterRequest(
                 nome_completo="João Silva",
@@ -156,7 +156,8 @@ class TestRegisterValidation(unittest.TestCase):
 
     def test_data_nascimento_invalida_menor_de_14_anos(self):
         """BUG-003 (a): Idade menor que 14 anos (~10 anos) deve ser rejeitada."""
-        dez_anos_atras = date.today().replace(year=date.today().year - 10)
+        hoje = datetime.now(tz=timezone.utc).date()
+        dez_anos_atras = hoje.replace(year=hoje.year - 10)
         with self.assertRaises(ValidationError) as ctx:
             RegisterRequest(
                 nome_completo="João Silva",
