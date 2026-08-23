@@ -6,7 +6,8 @@ Um curso pode ter varios usuarios associados.
 """
 
 import uuid
-from sqlalchemy import Column, String, Boolean
+
+from sqlalchemy import Boolean, Column, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 

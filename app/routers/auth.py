@@ -11,31 +11,31 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
-from app.models.user import User
 from app.deps import get_current_user
+from app.models.user import User
 from app.redis import (
+    aplicar_cooldown_bruteforce,
+    incrementar_rate_limit_email,
+    incrementar_rate_limit_ip,
+    limpar_tentativas,
+    registrar_tentativa_falha,
     salvar_otp,
+    verificar_bloqueio_bruteforce,
     verificar_otp,
     verificar_rate_limit_email,
-    incrementar_rate_limit_email,
     verificar_rate_limit_ip,
-    incrementar_rate_limit_ip,
-    verificar_bloqueio_bruteforce,
-    registrar_tentativa_falha,
-    aplicar_cooldown_bruteforce,
-    limpar_tentativas,
 )
-from app.config import settings
 from app.utils.email_service import enviar_email_otp
 from app.utils.security import (
-    hash_senha,
-    verificar_senha,
     criar_token_acesso,
     criar_token_atualizacao,
     criar_token_redefinicao,
     decodificar_token,
     gerar_codigo_otp,
+    hash_senha,
+    verificar_senha,
 )
 
 logger = logging.getLogger("uvicorn.error")

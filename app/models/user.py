@@ -8,7 +8,7 @@ Campos baseados no schema Pydantic UsuarioCompleto (app/schemas.py).
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Date, DateTime, Integer, String, ForeignKey, text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 

@@ -8,16 +8,15 @@ Exigem cargo (role) de 'admin' ou 'super_admin'.
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import require_role
-from app.models.course import Course
-from app.models.user import User
-from app.models.status import Status
 from app.models.role import Role
+from app.models.status import Status
+from app.models.user import User
 from app.schemas import (
     ChangeRoleRequest,
     ChangeStatusRequest,

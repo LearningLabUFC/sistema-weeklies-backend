@@ -1,4 +1,3 @@
-from typing import List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -15,7 +14,7 @@ router = APIRouter(
 
 @router.get(
     "/cursos",
-    response_model=List[CursoResumo],
+    response_model=list[CursoResumo],
     status_code=200,
     summary="Listar cursos",
     description="Retorna a lista de cursos disponíveis com id, nome e status ativo.",
@@ -67,7 +66,7 @@ router = APIRouter(
         },
     },
 )
-async def listar_cursos(db: Session = Depends(get_db)) -> List[CursoResumo]:
+async def listar_cursos(db: Session = Depends(get_db)) -> list[CursoResumo]:
     cursos = db.query(Course).order_by(Course.nome.asc()).all()
 
     return [

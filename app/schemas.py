@@ -13,7 +13,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 # ── Validação de senha forte ─────────────────────────────────
 
 _SENHA_REGEX = re.compile(

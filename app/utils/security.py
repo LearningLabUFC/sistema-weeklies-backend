@@ -15,7 +15,6 @@ from jose import JWTError, jwt
 
 from app.config import settings
 
-
 # ── Hashing de senhas ────────────────────────────────────────
 
 def hash_senha(senha: str) -> str:

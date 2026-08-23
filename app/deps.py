@@ -9,7 +9,7 @@ correspondente do banco de dados.
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db

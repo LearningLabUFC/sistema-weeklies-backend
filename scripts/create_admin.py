@@ -7,11 +7,12 @@ from datetime import date
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import SessionLocal
-from app.models.user import User
+from app.models.course import Course
 from app.models.role import Role
 from app.models.status import Status
-from app.models.course import Course
+from app.models.user import User
 from app.utils.security import hash_senha
+
 
 def create_super_admin():
     db = SessionLocal()
@@ -59,9 +60,9 @@ def create_super_admin():
 
         db.add(novo_admin)
         db.commit()
-        print(f"✅ Super_admin criado com sucesso!")
+        print("✅ Super_admin criado com sucesso!")
         print(f"📧 E-mail: {novo_admin.email}")
-        print(f"🔑 Senha: Admin@123")
+        print("🔑 Senha: Admin@123")
 
     except Exception as e:
         print(f"❌ Erro ao criar super_admin: {e}")

@@ -9,13 +9,11 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
-
-from app.config import settings
-from app.database import Base
-
 # Importar todos os modelos para que Base.metadata conheça as tabelas.
 import app.models  # noqa: F401
+from alembic import context
+from app.config import settings
+from app.database import Base
 
 # ── Alembic Config object ───────────────────────────────────
 

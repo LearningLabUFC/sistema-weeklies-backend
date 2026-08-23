@@ -12,8 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.redis import iniciar_redis, encerrar_redis
-
+from app.redis import encerrar_redis, iniciar_redis
 from app.routers import admin, auth, domain, users
 
 load_dotenv()
