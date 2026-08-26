@@ -8,6 +8,7 @@ FastAPI BackgroundTasks (função síncrona / blocking I/O).
 
 import logging
 import smtplib
+import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -22,7 +23,7 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 _OTP_TEMPLATE_PATH = _TEMPLATE_DIR / "otp_template.html"
 
 
-def _carregar_template_otp(codigo: str) -> str:
+def _carregar_template_otp(codigo: str, destinatario: str) -> str:
     """
     Carrega o template HTML e substitui os placeholders.
 
@@ -30,13 +31,21 @@ def _carregar_template_otp(codigo: str) -> str:
         {{CODIGO}}              — Código OTP de 6 dígitos
         {{EXPIRE_MINUTES}}      — Tempo de expiração em minutos
         {{FROM_NAME}}           — Nome do remetente (LearningLab)
+        {{VERIFY_LINK}}         — Link direto para a página de verificação
     """
     template = _OTP_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    frontend_url = getattr(settings, "FRONTEND_URL",
+                           "http://localhost:5173").rstrip("/")
+    email_encodado = urllib.parse.quote(destinatario)
+    verify_link = f"{frontend_url}/verify-code?email={email_encodado}"
+
     return (
         template
         .replace("{{CODIGO}}", codigo)
         .replace("{{EXPIRE_MINUTES}}", str(settings.OTP_EXPIRE_MINUTES))
         .replace("{{FROM_NAME}}", settings.SMTP_FROM_NAME)
+        .replace("{{VERIFY_LINK}}", verify_link)
     )
 
 
@@ -51,7 +60,8 @@ def enviar_email_otp(destinatario: str, codigo: str) -> None:
     Raises:
         smtplib.SMTPException: em caso de falha no envio.
     """
-    html_body = _carregar_template_otp(codigo)
+    # Adicionamos o destinatario aqui na chamada da função
+    html_body = _carregar_template_otp(codigo, destinatario)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"🔐 Código de verificação — {settings.SMTP_FROM_NAME}"
@@ -72,7 +82,8 @@ def enviar_email_otp(destinatario: str, codigo: str) -> None:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_FROM_EMAIL, destinatario, msg.as_string())
+            server.sendmail(settings.SMTP_FROM_EMAIL,
+                            destinatario, msg.as_string())
 
         logger.info("📧 E-mail OTP enviado com sucesso para %s", destinatario)
 

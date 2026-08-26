@@ -1,34 +1,19 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Código de Verificação</title>
   <style>
     /* Reset */
-    body,
-    table,
-    td,
-    p,
-    a {
-      margin: 0;
-      padding: 0;
-    }
-
+    body, table, td, p, a { margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background-color: #f0f2f5;
       color: #1a1a2e;
       -webkit-text-size-adjust: 100%;
     }
-
-    .wrapper {
-      width: 100%;
-      padding: 40px 0;
-      background-color: #f0f2f5;
-    }
-
+    .wrapper { width: 100%; padding: 40px 0; background-color: #f0f2f5; }
     .container {
       max-width: 520px;
       margin: 0 auto;
@@ -37,46 +22,19 @@
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
       overflow: hidden;
     }
-
     /* Header */
     .header {
       background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
       padding: 32px 40px;
       text-align: center;
     }
-
-    .header h1 {
-      color: #ffffff;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      margin: 0;
-    }
-
-    .header .icon {
-      font-size: 36px;
-      margin-bottom: 8px;
-    }
-
+    .header h1 { color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0; }
+    
     /* Body */
-    .body-content {
-      padding: 36px 40px;
-    }
-
-    .body-content p {
-      font-size: 15px;
-      line-height: 1.6;
-      color: #4a4a68;
-      margin-bottom: 16px;
-    }
-
-    .body-content .greeting {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1a1a2e;
-      margin-bottom: 20px;
-    }
-
+    .body-content { padding: 36px 40px; }
+    .body-content p { font-size: 15px; line-height: 1.6; color: #4a4a68; margin-bottom: 16px; }
+    .body-content .greeting { font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 20px; }
+    
     /* OTP Code Box */
     .otp-box {
       text-align: center;
@@ -86,7 +44,6 @@
       border: 2px dashed #c4b5fd;
       border-radius: 12px;
     }
-
     .otp-box .label {
       font-size: 12px;
       text-transform: uppercase;
@@ -95,13 +52,30 @@
       font-weight: 600;
       margin-bottom: 12px;
     }
-
     .otp-code {
       font-size: 38px;
       font-weight: 800;
       letter-spacing: 10px;
       color: #6366f1;
       font-family: 'Courier New', monospace;
+    }
+
+    /* Botão de Ação */
+    .btn-container {
+      text-align: center;
+      margin: 32px 0 24px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      background-color: #6366f1;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 8px;
+      font-size: 16px;
+      box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+      transition: background-color 0.2s;
     }
 
     /* Warning */
@@ -115,18 +89,9 @@
       border-left: 4px solid #f59e0b;
       border-radius: 8px;
     }
-
-    .warning .icon {
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .warning p {
-      font-size: 13px;
-      color: #92400e;
-      margin: 0;
-    }
-
+    .warning .icon { font-size: 18px; flex-shrink: 0; }
+    .warning p { font-size: 13px; color: #92400e; margin: 0; }
+    
     /* Footer */
     .footer {
       padding: 20px 40px;
@@ -134,54 +99,27 @@
       background-color: #f9fafb;
       border-top: 1px solid #e5e7eb;
     }
-
-    .footer p {
-      font-size: 12px;
-      color: #9ca3af;
-      line-height: 1.5;
-    }
-
-    .footer .brand {
-      font-weight: 600;
-      color: #6366f1;
-    }
+    .footer p { font-size: 12px; color: #9ca3af; line-height: 1.5; }
+    .footer .brand { font-weight: 600; color: #6366f1; }
 
     /* Responsive */
     @media only screen and (max-width: 600px) {
-      .container {
-        margin: 0 16px;
-      }
-
-      .header {
-        padding: 24px 20px;
-      }
-
-      .body-content {
-        padding: 24px 20px;
-      }
-
-      .otp-code {
-        font-size: 30px;
-        letter-spacing: 6px;
-      }
-
-      .footer {
-        padding: 16px 20px;
-      }
+      .container { margin: 0 16px; }
+      .header { padding: 24px 20px; }
+      .body-content { padding: 24px 20px; }
+      .otp-code { font-size: 30px; letter-spacing: 6px; }
+      .footer { padding: 16px 20px; }
+      .btn { width: 100%; box-sizing: border-box; }
     }
   </style>
 </head>
-
 <body>
   <div class="wrapper">
     <div class="container">
-
-      <!-- Header -->
       <div class="header">
         <h1>Código de Verificação</h1>
       </div>
 
-      <!-- Body -->
       <div class="body-content">
         <p class="greeting">Olá!</p>
         <p>
@@ -189,10 +127,12 @@
           <strong>{{FROM_NAME}}</strong>. Use o código abaixo para continuar:
         </p>
 
-        <!-- OTP Code -->
         <div class="otp-box">
           <div class="label">Seu código de verificação</div>
           <div class="otp-code">{{CODIGO}}</div>
+        </div>
+        <div class="btn-container">
+          <a href="{{VERIFY_LINK}}" class="btn">Ir para Verificação</a>
         </div>
 
         <p>
@@ -200,7 +140,6 @@
           Após esse período, você precisará solicitar um novo código.
         </p>
 
-        <!-- Warning -->
         <div class="warning">
           <span class="icon">⚠️</span>
           <p>
@@ -210,7 +149,6 @@
         </div>
       </div>
 
-      <!-- Footer -->
       <div class="footer">
         <p>
           Este é um e-mail automático enviado pelo
@@ -218,9 +156,7 @@
           Por favor, não responda a esta mensagem.
         </p>
       </div>
-
     </div>
   </div>
 </body>
-
 </html>

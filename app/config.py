@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     VERIFY_CODE_MAX_ATTEMPTS: int = 5
     VERIFY_CODE_COOLDOWN_MINUTES: int = 15
 
+    # ── Frontend URL ───────────────────────────────────────────
+    FRONTEND_URL: str = "http://localhost:5173"
+
     @property
     def DATABASE_URL(self) -> str:
         """Monta a URL de conexão com o PostgreSQL a partir das variáveis individuais."""
