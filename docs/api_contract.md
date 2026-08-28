@@ -162,7 +162,7 @@ Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
   "data_nascimento": "2000-01-01",
   "matricula": "512345",
   "curso_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "metas_horas_semanais": 12
+  "meta_horas_semanais": 12
 }
 ```
 
@@ -174,7 +174,7 @@ Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
 | `data_nascimento`      | `string` | ✅          | Formato `YYYY-MM-DD`                                         |
 | `matricula`            | `string` | ✅          | Matrícula universitária única                                |
 | `curso_id`             | `string` | ✅          | UUID do curso acadêmico                                      |
-| `metas_horas_semanais` | `int`    | ✅          | Carga horária semanal obrigatória (ex: 12)                    |
+| `meta_horas_semanais` | `int`    | ✅          | Carga horária semanal obrigatória (ex: 12)                    |
 
 **Response (201 Created):**
 ```json
@@ -708,7 +708,7 @@ export interface RegisterRequest {
   data_nascimento: string;
   matricula: string;
   curso_id: string;
-  metas_horas_semanais: number;
+  meta_horas_semanais: number;
 }
 
 export interface LoginRequest {

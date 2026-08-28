@@ -131,7 +131,7 @@ async def register_user(body: RegisterRequest, db: Session = Depends(get_db)) ->
         matricula=body.matricula,
         data_nascimento=body.data_nascimento,
         data_ingresso=datetime.now(tz=timezone.utc).date(),
-        meta_horas_semanais=body.metas_horas_semanais,
+        meta_horas_semanais=body.meta_horas_semanais,
         foto_perfil="avatar_padrao.png",
         curso_id=body.curso_id,
         status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),  # Pendente

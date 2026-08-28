@@ -209,7 +209,7 @@ class RegisterRequest(BaseModel):
         description="UUID do curso acadêmico do aluno.",
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
     )
-    metas_horas_semanais: int = Field(
+    meta_horas_semanais: int = Field(
         ...,
         description="Horas obrigatórias trabalhadas na semana",
         examples=[12]
