@@ -50,6 +50,7 @@ jobs:
       POSTGRES_USER: weeklies_user
       POSTGRES_PASSWORD: weeklies_secret
       POSTGRES_DB: weeklies_db
+      POSTGRES_PORT: "5432"
       SECRET_KEY: chave-apenas-para-ci
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
