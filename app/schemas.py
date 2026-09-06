@@ -333,6 +333,16 @@ class VerifyCodeResponse(BaseModel):
 # Auth — Rotas adicionais (M2)
 # ────────────────────────────────────────────
 
+class LogoutRequest(BaseModel):
+    """Body opcional para POST /auth/logout."""
+
+    token_atualizacao: str | None = Field(
+        None,
+        description="Refresh token opcional para revogação no momento do logout.",
+        examples=["def50200543e332..."],
+    )
+
+
 class RefreshTokenRequest(BaseModel):
     """Body para POST /auth/refresh."""
 

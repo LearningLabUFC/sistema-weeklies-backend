@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # ── Redis (OTP / Cache) ──────────────────────────────────
     REDIS_HOST: str = "localhost"
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
 
     # ── Rate Limiting (forgot-password) ──────────────────────
     FORGOT_PASSWORD_MAX_REQUESTS: int = 3
+    FORGOT_PASSWORD_IP_MAX_REQUESTS: int = 10
     FORGOT_PASSWORD_WINDOW_MINUTES: int = 15
 
     # ── Anti Brute-force (verify-code) ───────────────────────
