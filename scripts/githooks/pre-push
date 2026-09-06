@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+echo "=========================================================="
+echo "🚀 Executando validações de pré-push (Ruff + Pytest)..."
+echo "=========================================================="
+
+# Define a raiz do projeto e ativa o virtualenv (assumindo a pasta .venv)
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+cd "$PROJECT_ROOT"
+
+if [ ! -d ".venv" ]; then
+    echo "⚠️  Ambiente virtual (.venv) não encontrado. Ignorando testes."
+    exit 0
+fi
+
+# 1. Executa o Ruff (Linter)
+echo "🔍 1/2: Rodando Ruff (Linter)..."
+.venv/bin/ruff check app/ tests/ conftest.py
+RUFF_STATUS=$?
+
+if [ $RUFF_STATUS -ne 0 ]; then
+  echo "❌ ERRO: Código falhou na validação de qualidade (Ruff)."
+  echo "Por favor, corrija os erros de lint apontados acima antes de fazer o push."
+  exit 1
+fi
+
+# 2. Executa o Pytest (Testes)
+echo "🧪 2/2: Rodando Pytest (Testes de Integração)..."
+PYTHONPATH=. .venv/bin/pytest tests/ --disable-warnings
+PYTEST_STATUS=$?
+
+if [ $PYTEST_STATUS -ne 0 ]; then
+  echo "❌ ERRO: Código falhou na suíte de testes (Pytest)."
+  echo "Por favor, corrija os testes quebrados antes de fazer o push."
+  exit 1
+fi
+
+echo "✅ Todas as validações passaram! Iniciando o push..."
+exit 0

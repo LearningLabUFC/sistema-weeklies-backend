@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Recupera o nome da branch atual
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Se a branch for main ou develop, bloqueia o commit
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "develop" ]; then
+  echo "=========================================================="
+  echo "🚫 ERRO: Commits diretos na branch '$BRANCH' não são permitidos!"
+  echo "Por favor, crie uma branch de feature/fix (ex: feature/minha-alteracao),"
+  echo "faça o commit lá e então abra um Pull Request."
+  echo "=========================================================="
+  exit 1
+fi
+
+# Se chegou aqui, está em uma branch segura. Permite o commit.
+exit 0
