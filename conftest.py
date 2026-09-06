@@ -107,3 +107,15 @@ def fake_redis(monkeypatch):
     
     monkeypatch.setattr(app_redis, "_redis_pool", fake_pool)
     yield fake_pool
+
+
+@pytest.fixture(autouse=True)
+def mock_email_service(monkeypatch):
+    """
+    Mocka o serviço de e-mail globalmente para todos os testes.
+    Isso impede que o sistema tente conectar no SMTP real (ex: Gmail) durante os testes,
+    o que causava Timeout ou AuthenticationError no GitHub Actions.
+    """
+    import app.routers.auth as auth_router
+    # Se a função for chamada diretamente no router:
+    monkeypatch.setattr(auth_router, "enviar_email_otp", lambda email, codigo: True)
