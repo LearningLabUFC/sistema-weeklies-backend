@@ -41,6 +41,12 @@ async def get_current_user(
     payload = decodificar_token(token)
     if payload is None:
         raise credenciais_exception
+        
+    jti = payload.get("jti")
+    if jti:
+        from app.redis import token_na_blacklist
+        if await token_na_blacklist(jti):
+            raise credenciais_exception
 
     # Apenas tokens de acesso são válidos aqui (não refresh tokens)
     if payload.get("tipo") != "acesso":
