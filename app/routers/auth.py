@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -16,12 +17,14 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
 from app.redis import (
+    adicionar_token_blacklist,
     aplicar_cooldown_bruteforce,
     incrementar_rate_limit_email,
     incrementar_rate_limit_ip,
     limpar_tentativas,
     registrar_tentativa_falha,
     salvar_otp,
+    token_na_blacklist,
     verificar_bloqueio_bruteforce,
     verificar_otp,
     verificar_rate_limit_email,
@@ -47,6 +50,7 @@ from app.schemas import (
     ErroPadrao,
     ForgotPasswordRequest,
     LoginRequest,
+    LogoutRequest,
     MensagemResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
@@ -523,7 +527,30 @@ async def reset_password(
         },
     },
 )
-async def logout_user() -> MensagemResponse:
+async def logout_user(
+    body: LogoutRequest,
+    current_user: User = Depends(get_current_user),
+    auth: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+) -> MensagemResponse:
+    # Revogar o access token atual
+    payload_acesso = decodificar_token(auth.credentials)
+    if payload_acesso:
+        jti = payload_acesso.get("jti")
+        exp = payload_acesso.get("exp", 0)
+        ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 0)
+        if jti:
+            await adicionar_token_blacklist(jti, ttl)
+            
+    # Revogar o refresh token, se enviado
+    if body.token_atualizacao:
+        payload_refresh = decodificar_token(body.token_atualizacao)
+        if payload_refresh:
+            jti = payload_refresh.get("jti")
+            exp = payload_refresh.get("exp", 0)
+            ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 0)
+            if jti:
+                await adicionar_token_blacklist(jti, ttl)
+
     return MensagemResponse(
         mensagem="Sessão encerrada com sucesso.",
     )
@@ -561,12 +588,42 @@ async def logout_user() -> MensagemResponse:
         },
     },
 )
-async def refresh_token(body: RefreshTokenRequest) -> RefreshTokenResponse:
+async def refresh_token(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+) -> RefreshTokenResponse:
+    # 1. Decodificar o refresh token
+    payload = decodificar_token(body.token_atualizacao)
+    if payload is None or payload.get("tipo") != "atualizacao":
+        raise HTTPException(status_code=401, detail="Refresh token inválido ou expirado.")
+
+    # 2. Verificar se está na blacklist (já foi usado/revogado)
+    jti = payload.get("jti")
+    if jti and await token_na_blacklist(jti):
+        raise HTTPException(status_code=401, detail="Refresh token já foi utilizado.")
+
+    # 3. Buscar o usuário
+    user_id = payload.get("sub")
+    usuario = db.query(User).filter(User.id == user_id).first()
+    if not usuario or usuario.status.nome != "ativo":
+        raise HTTPException(status_code=401, detail="Refresh token inválido ou expirado.")
+
+    # 4. Revogar o refresh token antigo (rotação)
+    if jti:
+        exp = payload.get("exp", 0)
+        ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 0)
+        await adicionar_token_blacklist(jti, ttl)
+
+    # 5. Emitir novos tokens
+    token_dados = {"sub": str(usuario.id)}
+    novo_acesso = criar_token_acesso(token_dados)
+    novo_atualizacao = criar_token_atualizacao(token_dados)
+
     return RefreshTokenResponse(
         mensagem="Token renovado com sucesso.",
-        token_acesso="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIi...novoToken",
+        token_acesso=novo_acesso,
         tipo_token="bearer",
-        token_atualizacao="ghi78900novoRefreshToken...",
+        token_atualizacao=novo_atualizacao,
     )
 
 

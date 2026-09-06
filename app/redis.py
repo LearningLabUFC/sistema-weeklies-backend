@@ -21,11 +21,17 @@ _redis_pool: aioredis.Redis | None = None
 async def iniciar_redis() -> None:
     """Abre o pool de conexões com o Redis. Chamado no startup da app."""
     global _redis_pool
+    if _redis_pool is not None:
+        try:
+            await _redis_pool.ping()
+            return  # Já está conectado e saudável
+        except (ConnectionError, TimeoutError, aioredis.RedisError):
+            _redis_pool = None  # Descarta a conexão quebrada
+
     _redis_pool = aioredis.from_url(
         settings.REDIS_URL,
         decode_responses=True,
     )
-    # Verifica se a conexão está funcional
     await _redis_pool.ping()
     logger.info("✅ Redis conectado em %s", settings.REDIS_URL)
 
@@ -34,7 +40,7 @@ async def encerrar_redis() -> None:
     """Fecha o pool de conexões com o Redis. Chamado no shutdown da app."""
     global _redis_pool
     if _redis_pool:
-        await _redis_pool.close()
+        await _redis_pool.aclose()
         _redis_pool = None
         logger.info("🔌 Redis desconectado.")
 
@@ -128,14 +134,14 @@ async def verificar_rate_limit_ip(ip: str) -> bool:
     """
     Verifica se o IP ainda pode solicitar OTPs (limite global).
 
-    Limite: 10 requisições por janela de 15 minutos por IP.
+    Limite configurável por janela de 15 minutos por IP.
     Retorna True se PERMITIDO, False se bloqueado.
     """
     r = get_redis()
     chave = f"{_RATE_LIMIT_IP_PREFIX}:{ip}"
     contagem = await r.get(chave)
 
-    return not (contagem is not None and int(contagem) >= 10)
+    return not (contagem is not None and int(contagem) >= settings.FORGOT_PASSWORD_IP_MAX_REQUESTS)
 
 
 async def incrementar_rate_limit_ip(ip: str) -> None:
@@ -210,3 +216,20 @@ async def limpar_tentativas(email: str) -> None:
     """Limpa o contador de tentativas falhas após verificação bem-sucedida."""
     r = get_redis()
     await r.delete(f"{_BRUTEFORCE_PREFIX}:{email}")
+
+
+# ── Blacklist JWT (logout / refresh rotation) ────────────
+
+_BLACKLIST_PREFIX = "blacklist:jti"
+
+async def adicionar_token_blacklist(jti: str, ttl_segundos: int) -> None:
+    """Adiciona um JTI à blacklist com TTL = tempo restante do token."""
+    if ttl_segundos <= 0:
+        return
+    r = get_redis()
+    await r.set(f"{_BLACKLIST_PREFIX}:{jti}", "1", ex=ttl_segundos)
+
+async def token_na_blacklist(jti: str) -> bool:
+    """Verifica se um JTI está na blacklist (token revogado)."""
+    r = get_redis()
+    return await r.exists(f"{_BLACKLIST_PREFIX}:{jti}") == 1
