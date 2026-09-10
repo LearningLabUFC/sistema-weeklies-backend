@@ -20,15 +20,18 @@ from app.utils.security import (
 
 # ── Hashing de senhas (bcrypt) ───────────────────────────────
 
+
 def test_senha_correta_valida():
     """Senha correta hashing e verificação de senhas (bcrypt)."""
     hash_gerado = hash_senha("MinhaSenha123!")
     assert verificar_senha("MinhaSenha123!", hash_gerado) is True
 
+
 def test_senha_errada_rejeitada():
     """Senha incorreta deve retornar False na verificação."""
     hash_gerado = hash_senha("MinhaSenha123!")
     assert verificar_senha("SenhaErrada123!", hash_gerado) is False
+
 
 def test_hashes_diferentes_por_salt():
     """Dois hashes da mesma senha devem ser diferentes (salt aleatório)."""
@@ -44,6 +47,7 @@ def test_hash_retorna_string():
     """O hash gerado deve ser do tipo string (não bytes)."""
     assert isinstance(hash_senha("Teste123!"), str)
 
+
 def test_hash_senha_com_unicode():
     """Senhas com acentos e caracteres especiais devem funcionar."""
     senha = "Sénh@Fôrté123!"
@@ -52,6 +56,7 @@ def test_hash_senha_com_unicode():
 
 
 # ── Tokens JWT ───────────────────────────────────────────────
+
 
 def test_criar_e_decodificar_token_acesso():
     """Token de acesso deve ser criado e decodificado com os dados corretos."""
@@ -137,6 +142,7 @@ def test_token_acesso_usa_algoritmo_configurado():
 
 
 # ── OTP ──────────────────────────────────────────────────────
+
 
 def test_otp_tamanho_padrao():
     """OTP padrão deve ter 6 dígitos."""

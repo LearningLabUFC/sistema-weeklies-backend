@@ -20,12 +20,12 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import (
-    _SENHA_MSG,
+from app.auth.schemas import (
     ChangePasswordRequest,
     RegisterRequest,
     ResetPasswordRequest,
 )
+from app.core.validators import _SENHA_MSG
 
 # Campos válidos base para o RegisterRequest (evita repetição)
 
@@ -44,6 +44,7 @@ _REGISTER_BASE = {
 
 # ── Testes de senha válida ──────────────────────────────────
 
+
 def test_senha_valida():
     """Senha que atende todos os requisitos deve ser aceita."""
     req = RegisterRequest(**_REGISTER_BASE, senha="SenhaForte123!")
@@ -57,6 +58,7 @@ def test_senha_valida_exatamente_8_caracteres():
 
 
 # ── Testes de senha inválida (cada regra isolada) ───────────
+
 
 def test_senha_sem_letra_maiuscula():
     """Senha sem letra maiúscula deve ser rejeitada."""
@@ -101,6 +103,7 @@ def test_senha_vazia():
 
 
 # ── Testes nos outros schemas (mesma validação) ─────────────
+
 
 def test_reset_password_senha_valida():
     """Senha forte deve ser aceita na redefinição de senha."""

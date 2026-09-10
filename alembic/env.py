@@ -34,6 +34,7 @@ target_metadata = Base.metadata
 
 # ── Modo offline (gera SQL sem conectar ao banco) ────────────
 
+
 def run_migrations_offline() -> None:
     """Executa migrations em modo 'offline' (gera SQL sem conectar ao banco)."""
     url = config.get_main_option("sqlalchemy.url")
@@ -50,6 +51,7 @@ def run_migrations_offline() -> None:
 
 # ── Modo online (conecta ao banco e aplica migrations) ───────
 
+
 def run_migrations_online() -> None:
     """Executa migrations em modo 'online' (conecta ao banco e aplica as alterações)."""
     connectable = engine_from_config(
@@ -59,9 +61,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

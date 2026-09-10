@@ -31,6 +31,7 @@ router = APIRouter(
     tags=["Administração"],
 )
 
+
 def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
     """Helper para serialização."""
     return UsuarioCompleto(
@@ -78,9 +79,19 @@ def _build_usuario_list_item(usuario: User) -> UsuarioListItem:
 async def list_all_users(
     pagina: int = Query(1, ge=1, description="Número da página (1-indexed)."),
     limite: int = Query(20, ge=1, le=100, description="Itens por página (máx. 100)."),
-    status_filtro: str | None = Query(None, alias="status", description="Filtrar por status: 'ativo', 'pendente', 'inativo'."),
-    role_filtro: str | None = Query(None, alias="role", description="Filtrar por cargo: 'super_admin', 'admin', 'aluno'."),
-    busca: str | None = Query(None, description="Busca por nome ou e-mail (case-insensitive)."),
+    status_filtro: str | None = Query(
+        None,
+        alias="status",
+        description="Filtrar por status: 'ativo', 'pendente', 'inativo'.",
+    ),
+    role_filtro: str | None = Query(
+        None,
+        alias="role",
+        description="Filtrar por cargo: 'super_admin', 'admin', 'aluno'.",
+    ),
+    busca: str | None = Query(
+        None, description="Busca por nome ou e-mail (case-insensitive)."
+    ),
     admin_user: User = Depends(require_role(["super_admin", "admin"])),
     db: Session = Depends(get_db),
 ) -> Any:
@@ -108,7 +119,9 @@ async def list_all_users(
 
     total = query.count()
     offset = (pagina - 1) * limite
-    usuarios = query.order_by(User.nome_completo.asc()).offset(offset).limit(limite).all()
+    usuarios = (
+        query.order_by(User.nome_completo.asc()).offset(offset).limit(limite).all()
+    )
 
     return UsuarioListResponse(
         usuarios=[_build_usuario_list_item(u) for u in usuarios],
@@ -149,15 +162,20 @@ async def change_user_status(
     db: Session = Depends(get_db),
 ) -> Any:
     if body.novo_status not in ["ativo", "inativo"]:
-        raise HTTPException(status_code=400, detail="Status inválido. Escolha 'ativo' ou 'inativo'.")
-    
+        raise HTTPException(
+            status_code=400, detail="Status inválido. Escolha 'ativo' ou 'inativo'."
+        )
+
     usuario = db.query(User).filter(User.id == user_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-    
+
     # Impedir que um admin altere um super_admin
     if usuario.role.nome == "super_admin" and admin_user.role.nome != "super_admin":
-        raise HTTPException(status_code=403, detail="Apenas outro super_admin pode alterar um super_admin.")
+        raise HTTPException(
+            status_code=403,
+            detail="Apenas outro super_admin pode alterar um super_admin.",
+        )
 
     status_obj = db.query(Status).filter(Status.nome == body.novo_status).first()
     if not status_obj:
@@ -166,7 +184,9 @@ async def change_user_status(
     usuario.status_id = status_obj.id
     db.commit()
 
-    return MensagemResponse(mensagem=f"Status do usuário alterado para {body.novo_status} com sucesso.")
+    return MensagemResponse(
+        mensagem=f"Status do usuário alterado para {body.novo_status} com sucesso."
+    )
 
 
 # ── PATCH /admin/users/{user_id}/role ───────────────────────
@@ -223,10 +243,10 @@ async def change_user_role(
     roles_admin = db.query(Role.id).filter(Role.nome.in_(["admin", "super_admin"]))
     status_ativo = db.query(Status.id).filter(Status.nome == "ativo").scalar()
 
-    if (
-        usuario.role.nome in ["admin", "super_admin"]
-        and body.role_nome not in ["admin", "super_admin"]
-    ):
+    if usuario.role.nome in ["admin", "super_admin"] and body.role_nome not in [
+        "admin",
+        "super_admin",
+    ]:
         total_admins_ativos = (
             db.query(func.count(User.id))
             .filter(
@@ -266,7 +286,7 @@ async def delete_user_by_admin(
     usuario = db.query(User).filter(User.id == user_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-    
+
     inativo_status = db.query(Status).filter(Status.nome == "inativo").first()
     usuario.status_id = inativo_status.id
     db.commit()

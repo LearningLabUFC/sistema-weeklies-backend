@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -58,9 +57,7 @@ router = APIRouter(
             "content": {
                 "application/json": {
                     "schema": ErroPadrao.model_json_schema(),
-                    "example": {
-                        "mensagem": "Erro interno ao consultar os cursos."
-                    },
+                    "example": {"mensagem": "Erro interno ao consultar os cursos."},
                 }
             },
         },

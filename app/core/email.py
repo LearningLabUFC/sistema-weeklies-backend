@@ -35,14 +35,14 @@ def _carregar_template_otp(codigo: str, destinatario: str) -> str:
     """
     template = _OTP_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    frontend_url = getattr(settings, "FRONTEND_URL",
-                           "http://localhost:5173").rstrip("/")
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip(
+        "/"
+    )
     email_encodado = urllib.parse.quote(destinatario)
     verify_link = f"{frontend_url}/verify-code?email={email_encodado}"
 
     return (
-        template
-        .replace("{{CODIGO}}", codigo)
+        template.replace("{{CODIGO}}", codigo)
         .replace("{{EXPIRE_MINUTES}}", str(settings.OTP_EXPIRE_MINUTES))
         .replace("{{FROM_NAME}}", settings.SMTP_FROM_NAME)
         .replace("{{VERIFY_LINK}}", verify_link)
@@ -82,8 +82,7 @@ def enviar_email_otp(destinatario: str, codigo: str) -> None:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_FROM_EMAIL,
-                            destinatario, msg.as_string())
+            server.sendmail(settings.SMTP_FROM_EMAIL, destinatario, msg.as_string())
 
         logger.info("📧 E-mail OTP enviado com sucesso para %s", destinatario)
 

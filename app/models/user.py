@@ -37,12 +37,11 @@ class User(Base):
     )
 
     # UUIDs referenciais
-    curso_id = Column(UUID(as_uuid=True), ForeignKey(
-        "cursos.id"), nullable=False)
-    status_id = Column(UUID(as_uuid=True), ForeignKey(
-        "status_usuarios.id"), nullable=False)
-    global_role = Column(UUID(as_uuid=True), ForeignKey(
-        "cargos.id"), nullable=False)
+    curso_id = Column(UUID(as_uuid=True), ForeignKey("cursos.id"), nullable=False)
+    status_id = Column(
+        UUID(as_uuid=True), ForeignKey("status_usuarios.id"), nullable=False
+    )
+    global_role = Column(UUID(as_uuid=True), ForeignKey("cargos.id"), nullable=False)
 
     # relacao N para 1
     curso = relationship("Course", back_populates="usuarios")

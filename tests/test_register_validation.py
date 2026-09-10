@@ -13,7 +13,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import _MATRICULA_MSG, _NOME_MSG, RegisterRequest
+from app.auth.schemas import RegisterRequest
+from app.core.validators import _MATRICULA_MSG, _NOME_MSG
 
 # Campos válidos base para o RegisterRequest (evita repetição).
 # Para sobrescrever um campo específico, use:
@@ -32,6 +33,7 @@ _REGISTER_BASE = {
 
 # ── Matrícula ────────────────────────────────────────────────
 
+
 def test_matricula_valida():
     """Matrícula com 6 dígitos numéricos deve ser aceita."""
     req = RegisterRequest(**_REGISTER_BASE)
@@ -45,14 +47,17 @@ def test_matricula_invalida_7_digitos():
     assert _MATRICULA_MSG in str(exc_info.value)
 
 
-@pytest.mark.parametrize("matricula", [
-    "51234",    # 5 dígitos (curto)
-    "51234a",   # contém letra
-    "abcdef",   # só letras
-    "51 234",   # contém espaço
-    "123-45",   # contém hífen
-    "",         # vazia
-])
+@pytest.mark.parametrize(
+    "matricula",
+    [
+        "51234",  # 5 dígitos (curto)
+        "51234a",  # contém letra
+        "abcdef",  # só letras
+        "51 234",  # contém espaço
+        "123-45",  # contém hífen
+        "",  # vazia
+    ],
+)
 def test_matricula_invalida_outros_formatos(matricula):
     """Matrículas com formatos inválidos devem ser rejeitadas."""
     with pytest.raises(ValidationError) as exc_info:
@@ -62,26 +67,33 @@ def test_matricula_invalida_outros_formatos(matricula):
 
 # ── Nome completo ───────────────────────────────────────────
 
-@pytest.mark.parametrize("nome", [
-    "João Silva",
-    "Maria de Fátima",
-    "Jean-Paul Sartre",
-    "Luís d'Ávila",
-    "Ana Cláudia Gonçalves da Costa",
-])
+
+@pytest.mark.parametrize(
+    "nome",
+    [
+        "João Silva",
+        "Maria de Fátima",
+        "Jean-Paul Sartre",
+        "Luís d'Ávila",
+        "Ana Cláudia Gonçalves da Costa",
+    ],
+)
 def test_nome_completo_valido(nome):
     """Nomes compostos com acentos, apóstrofos e hífens devem ser aceitos."""
     req = RegisterRequest(**{**_REGISTER_BASE, "nome_completo": nome})
     assert req.nome_completo == nome.strip()
 
 
-@pytest.mark.parametrize("nome", [
-    "João123!@#",
-    "Carlos Eduardo 2",
-    "Ana_Paula",
-    "Lucas # Santos",
-    "Pedro $ Silva",
-])
+@pytest.mark.parametrize(
+    "nome",
+    [
+        "João123!@#",
+        "Carlos Eduardo 2",
+        "Ana_Paula",
+        "Lucas # Santos",
+        "Pedro $ Silva",
+    ],
+)
 def test_nome_completo_invalido_numeros_e_simbolos(nome):
     """BUG-002: Nomes contendo números e caracteres especiais devem ser rejeitados."""
     with pytest.raises(ValidationError) as exc_info:
@@ -89,12 +101,15 @@ def test_nome_completo_invalido_numeros_e_simbolos(nome):
     assert _NOME_MSG in str(exc_info.value)
 
 
-@pytest.mark.parametrize("nome", [
-    "João",     # apenas um nome
-    "Maria",    # apenas um nome
-    "",         # vazio
-    "   ",      # só espaços
-])
+@pytest.mark.parametrize(
+    "nome",
+    [
+        "João",  # apenas um nome
+        "Maria",  # apenas um nome
+        "",  # vazio
+        "   ",  # só espaços
+    ],
+)
 def test_nome_completo_invalido_apenas_um_nome_ou_vazio(nome):
     """Nomes com apenas uma palavra ou vazios devem ser rejeitados."""
     with pytest.raises(ValidationError) as exc_info:
@@ -107,11 +122,14 @@ def test_nome_completo_invalido_apenas_um_nome_ou_vazio(nome):
 _HOJE = datetime.now(tz=timezone.utc).date()
 
 
-@pytest.mark.parametrize("data", [
-    _HOJE.replace(year=_HOJE.year - 20),   # 20 anos
-    _HOJE.replace(year=_HOJE.year - 35),   # 35 anos
-    _HOJE.replace(year=_HOJE.year - 15),   # 15 anos (acima do mínimo de 14)
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        _HOJE.replace(year=_HOJE.year - 20),  # 20 anos
+        _HOJE.replace(year=_HOJE.year - 35),  # 35 anos
+        _HOJE.replace(year=_HOJE.year - 15),  # 15 anos (acima do mínimo de 14)
+    ],
+)
 def test_data_nascimento_valida(data):
     """Idades válidas (ex: 20, 35, 15 anos) devem ser aceitas."""
     req = RegisterRequest(**{**_REGISTER_BASE, "data_nascimento": data})

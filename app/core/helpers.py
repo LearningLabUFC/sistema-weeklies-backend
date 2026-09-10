@@ -1,6 +1,8 @@
 """Helpers de serialização compartilhados."""
+
 from app.core.schemas import UsuarioCompleto
 from app.models.user import User
+
 
 def build_usuario_completo(usuario: User) -> UsuarioCompleto:
     """Constrói o schema UsuarioCompleto a partir do model User."""

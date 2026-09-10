@@ -45,6 +45,7 @@ def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
 
 # ── GET /users/me ────────────────────────────────────────────
 
+
 @router.get(
     "/me",
     response_model=UsuarioPerfilResponse,
@@ -64,7 +65,9 @@ def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
                     "examples": {
                         "naoAutenticado": {
                             "summary": "Não autenticado",
-                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                            "value": {
+                                "mensagem": "Token de acesso ausente ou inválido."
+                            },
                         },
                     },
                 },
@@ -82,6 +85,7 @@ async def get_my_profile(
 
 
 # ── PUT /users/me ────────────────────────────────────────────
+
 
 @router.put(
     "/me",
@@ -102,7 +106,9 @@ async def get_my_profile(
                     "examples": {
                         "naoAutenticado": {
                             "summary": "Não autenticado",
-                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                            "value": {
+                                "mensagem": "Token de acesso ausente ou inválido."
+                            },
                         },
                     },
                 },
@@ -116,7 +122,9 @@ async def get_my_profile(
                     "examples": {
                         "emailDuplicado": {
                             "summary": "E-mail duplicado",
-                            "value": {"mensagem": "Este e-mail já está em uso por outro usuário."},
+                            "value": {
+                                "mensagem": "Este e-mail já está em uso por outro usuário."
+                            },
                         },
                     },
                 },
@@ -130,7 +138,9 @@ async def get_my_profile(
                     "examples": {
                         "nomeVazio": {
                             "summary": "Nome vazio",
-                            "value": {"mensagem": "O nome completo não pode ser uma string vazia."},
+                            "value": {
+                                "mensagem": "O nome completo não pode ser uma string vazia."
+                            },
                         },
                     },
                 },
@@ -149,10 +159,14 @@ async def update_my_profile(
 
     # Atualizar e-mail (verificar duplicidade)
     if body.email is not None and body.email != current_user.email:
-        email_existente = db.query(User).filter(
-            User.email == body.email,
-            User.id != current_user.id,
-        ).first()
+        email_existente = (
+            db.query(User)
+            .filter(
+                User.email == body.email,
+                User.id != current_user.id,
+            )
+            .first()
+        )
         if email_existente:
             raise HTTPException(
                 status_code=409,

@@ -1,4 +1,5 @@
 """Validadores reutilizáveis (regex e funções)."""
+
 import re
 
 _SENHA_REGEX = re.compile(
@@ -17,6 +18,7 @@ _MATRICULA_MSG = "A matrícula deve conter exatamente 6 dígitos numéricos."
 
 _NOME_REGEX = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$")
 _NOME_MSG = "O nome completo deve conter apenas letras, acentos e espaços, e possuir ao menos nome e sobrenome."
+
 
 def _validar_nome_completo(v: str) -> str:
     v = v.strip()

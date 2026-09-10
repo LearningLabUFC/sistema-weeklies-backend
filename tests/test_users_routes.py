@@ -31,6 +31,7 @@ VALID_LOGIN_PAYLOAD = {
 
 # ── Fixtures ─────────────────────────────────────────────────
 
+
 @pytest.fixture
 def usuario_ativo_logado(client, db_session):
     """Registra, ativa e loga um usuário. Retorna (user, tokens_dict)."""
@@ -44,6 +45,7 @@ def usuario_ativo_logado(client, db_session):
 
 
 # ── Testes de GET /users/me ──────────────────────────────────
+
 
 def test_get_me_sucesso(client, usuario_ativo_logado):
     """Deve retornar o perfil completo do usuário autenticado."""
@@ -77,14 +79,15 @@ def test_get_me_token_invalido(client):
 
 # ── Testes de PUT /users/me ──────────────────────────────────
 
+
 def test_update_me_nome(client, usuario_ativo_logado):
     """Deve atualizar apenas o nome e retornar os dados atualizados."""
     _user, tokens = usuario_ativo_logado
     headers = {"Authorization": f"Bearer {tokens['token_acesso']}"}
 
-    res = client.put("/users/me", json={
-        "nome_completo": "Nome Atualizado"
-    }, headers=headers)
+    res = client.put(
+        "/users/me", json={"nome_completo": "Nome Atualizado"}, headers=headers
+    )
 
     assert res.status_code == 200
     data = res.json()
@@ -99,9 +102,9 @@ def test_update_me_email(client, usuario_ativo_logado):
     _user, tokens = usuario_ativo_logado
     headers = {"Authorization": f"Bearer {tokens['token_acesso']}"}
 
-    res = client.put("/users/me", json={
-        "email": "novoemail@teste.com"
-    }, headers=headers)
+    res = client.put(
+        "/users/me", json={"email": "novoemail@teste.com"}, headers=headers
+    )
 
     assert res.status_code == 200
     assert res.json()["usuario"]["email"] == "novoemail@teste.com"
@@ -119,9 +122,7 @@ def test_update_me_email_duplicado(client, db_session, usuario_ativo_logado):
     client.post("/auth/register", json=segundo_payload)
 
     # Tentar trocar nosso email pelo email do segundo usuário
-    res = client.put("/users/me", json={
-        "email": "segundo@teste.com"
-    }, headers=headers)
+    res = client.put("/users/me", json={"email": "segundo@teste.com"}, headers=headers)
 
     assert res.status_code == 409
     assert "já está em uso" in res.json()["detail"]
@@ -132,9 +133,9 @@ def test_update_me_foto_perfil(client, usuario_ativo_logado):
     _user, tokens = usuario_ativo_logado
     headers = {"Authorization": f"Bearer {tokens['token_acesso']}"}
 
-    res = client.put("/users/me", json={
-        "foto_perfil": "novo_avatar.png"
-    }, headers=headers)
+    res = client.put(
+        "/users/me", json={"foto_perfil": "novo_avatar.png"}, headers=headers
+    )
 
     assert res.status_code == 200
     assert res.json()["usuario"]["foto_perfil"] == "novo_avatar.png"
@@ -145,8 +146,6 @@ def test_update_me_nome_invalido(client, usuario_ativo_logado):
     _user, tokens = usuario_ativo_logado
     headers = {"Authorization": f"Bearer {tokens['token_acesso']}"}
 
-    res = client.put("/users/me", json={
-        "nome_completo": "João"
-    }, headers=headers)
+    res = client.put("/users/me", json={"nome_completo": "João"}, headers=headers)
 
     assert res.status_code == 422

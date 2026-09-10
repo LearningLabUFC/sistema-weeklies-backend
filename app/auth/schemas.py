@@ -1,18 +1,11 @@
-"""
-Schemas Pydantic — gerados a partir do contrato OpenAPI (API First).
-
-Cada modelo mapeia um componente/schema ou um body inline
-definido no arquivo douglaslima-b57-Sistema-LL-1.0.0-unresolved.json.
-"""
-
-from __future__ import annotations
+"""Schemas para o módulo de Autenticação."""
 
 from datetime import date, datetime, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.core.schemas import ErroPadrao, MensagemResponse, UsuarioCompleto
+from app.core.schemas import UsuarioCompleto
 from app.core.validators import (
     _MATRICULA_MSG,
     _MATRICULA_REGEX,
@@ -20,35 +13,6 @@ from app.core.validators import (
     _SENHA_REGEX,
     _validar_nome_completo,
 )
-
-# ────────────────────────────────────────────
-# Schemas reutilizáveis (components/schemas)
-# ────────────────────────────────────────────
-
-
-class CursoResumo(BaseModel):
-    """Resumo público de um curso retornado pela API de domínio."""
-
-    id: UUID = Field(
-        ...,
-        description="Identificador único (UUID) do curso.",
-        examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
-    )
-    nome: str = Field(
-        ...,
-        description="Nome do curso.",
-        examples=["Engenharia de Software"],
-    )
-    ativo: bool = Field(
-        ...,
-        description="Indica se o curso está ativo no sistema.",
-        examples=[True],
-    )
-
-
-# ────────────────────────────────────────────
-# Auth — Request bodies
-# ────────────────────────────────────────────
 
 
 class RegisterRequest(BaseModel):
@@ -188,11 +152,6 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
-# ────────────────────────────────────────────
-# Auth — Response bodies
-# ────────────────────────────────────────────
-
-
 class AuthTokenResponse(BaseModel):
     """
     Resposta de sucesso para register (201) e login (200).
@@ -234,11 +193,6 @@ class VerifyCodeResponse(BaseModel):
     )
 
 
-# ────────────────────────────────────────────
-# Auth — Rotas adicionais (M2)
-# ────────────────────────────────────────────
-
-
 class LogoutRequest(BaseModel):
     """Body opcional para POST /auth/logout."""
 
@@ -257,25 +211,6 @@ class RefreshTokenRequest(BaseModel):
         description="Refresh token obtido no login ou registro.",
         examples=["def50200543e332..."],
     )
-
-
-__all__ = [
-    "AuthTokenResponse",
-    "ChangePasswordRequest",
-    "DeleteAccountRequest",
-    "ErroPadrao",
-    "ForgotPasswordRequest",
-    "LoginRequest",
-    "LogoutRequest",
-    "MensagemResponse",
-    "RefreshTokenRequest",
-    "RefreshTokenResponse",
-    "RegisterRequest",
-    "ResetPasswordRequest",
-    "UsuarioCompleto",
-    "VerifyCodeRequest",
-    "VerifyCodeResponse",
-]
 
 
 class RefreshTokenResponse(BaseModel):
@@ -331,144 +266,3 @@ class DeleteAccountRequest(BaseModel):
         description="Senha atual para confirmar a exclusão da conta.",
         examples=["SenhaForte123!"],
     )
-
-
-# ────────────────────────────────────────────
-# Admin — Gerenciamento de usuários
-# ────────────────────────────────────────────
-
-
-class ChangeStatusRequest(BaseModel):
-    """Body para PATCH /admin/users/{user_id}/status."""
-
-    novo_status: str = Field(
-        ...,
-        description="Novo status do usuário. Valores aceitos: 'ativo', 'inativo'.",
-        examples=["ativo"],
-    )
-
-
-class ChangeRoleRequest(BaseModel):
-    """Body para PATCH /admin/users/{user_id}/role."""
-
-    role_nome: str = Field(
-        ...,
-        description="Nome do novo cargo. Valores aceitos: 'super_admin', 'admin', 'aluno'.",
-        examples=["admin"],
-    )
-
-
-class UsuarioListItem(BaseModel):
-    """Item individual da listagem de usuários para admins (com nomes resolvidos)."""
-
-    id: UUID = Field(
-        ...,
-        description="Identificador único (UUID) do usuário.",
-        examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
-    )
-    nome_completo: str = Field(
-        ...,
-        description="Nome completo do usuário.",
-        examples=["João Silva"],
-    )
-    email: EmailStr = Field(
-        ...,
-        examples=["joao@exemplo.com"],
-    )
-    matricula: str = Field(
-        ...,
-        description="Número de matrícula.",
-        examples=["512345"],
-    )
-    data_ingresso: date = Field(
-        ...,
-        description="Data em que o usuário ingressou no projeto.",
-        examples=["2024-05-20"],
-    )
-    foto_perfil: str = Field(
-        ...,
-        description="Caminho ou URL referente à foto de perfil.",
-        examples=["avatar_padrao.png"],
-    )
-    curso_nome: str = Field(
-        ...,
-        description="Nome do curso do aluno (resolvido da relação).",
-        examples=["Engenharia de Software"],
-    )
-    status_nome: str = Field(
-        ...,
-        description="Status atual do usuário (resolvido da relação).",
-        examples=["ativo"],
-    )
-    role_nome: str = Field(
-        ...,
-        description="Cargo/papel do usuário (resolvido da relação).",
-        examples=["aluno"],
-    )
-
-
-class UsuarioListResponse(BaseModel):
-    """Resposta paginada para GET /admin/users."""
-
-    usuarios: list[UsuarioListItem] = Field(
-        ...,
-        description="Lista de usuários na página atual.",
-    )
-    total: int = Field(
-        ...,
-        description="Número total de usuários que correspondem aos filtros.",
-        examples=[42],
-    )
-    pagina: int = Field(
-        ...,
-        description="Página atual (1-indexed).",
-        examples=[1],
-    )
-    limite: int = Field(
-        ...,
-        description="Quantidade de itens por página.",
-        examples=[20],
-    )
-
-
-# ────────────────────────────────────────────
-# Users — Perfil do usuário (M2)
-# ────────────────────────────────────────────
-
-
-class UpdateProfileRequest(BaseModel):
-    """Body para PUT /users/me."""
-
-    nome_completo: str | None = Field(
-        None,
-        description="Novo nome completo do usuário.",
-        examples=["João Pedro Silva"],
-    )
-
-    @field_validator("nome_completo")
-    @classmethod
-    def validar_nome_completo(cls, v: str | None) -> str | None:
-        if v is not None:
-            return _validar_nome_completo(v)
-        return v
-
-    email: EmailStr | None = Field(
-        None,
-        description="Novo endereço de e-mail do usuário.",
-        examples=["joao.novo@exemplo.com"],
-    )
-    foto_perfil: str | None = Field(
-        None,
-        description="Novo caminho ou URL da foto de perfil.",
-        examples=["avatar_joao_2026.png"],
-    )
-
-
-class UsuarioPerfilResponse(BaseModel):
-    """Resposta para GET /users/me e PUT /users/me."""
-
-    mensagem: str = Field(
-        ...,
-        examples=["Perfil obtido com sucesso."],
-    )
-    usuario: UsuarioCompleto

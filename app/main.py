@@ -2,6 +2,7 @@
 Sistema de Gestão LL — Backend
 Entrypoint da aplicação FastAPI.
 """
+
 import os
 from contextlib import asynccontextmanager
 
@@ -20,6 +21,7 @@ origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 
 # ── Lifecycle (startup / shutdown) ───────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,6 +71,7 @@ app.include_router(domain.router)
 
 # ── Health check ─────────────────────────────────────────────
 
+
 @app.get(
     "/api/health",
     tags=["Health"],
@@ -85,6 +88,9 @@ async def health_check():
     except Exception as e:  # noqa: BLE001
         return JSONResponse(
             status_code=503,
-            content={"status": "unhealthy",
-                     "database": "disconnected", "error": str(e)},
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "error": str(e),
+            },
         )

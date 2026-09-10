@@ -23,6 +23,7 @@ CURSO_TESTE = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
 
 # ── Helpers ──────────────────────────────────────────────────
 
+
 def _registrar_e_logar(client, db_session, email, matricula, role_id):
     """Registra um usuário, ativa, seta o role e faz login. Retorna (user, token)."""
     payload = {
@@ -39,28 +40,37 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
     user.status_id = STATUS_ATIVO
     user.global_role = role_id
     db_session.commit()
-    res_login = client.post("/auth/login", json={"email": email, "senha": "SenhaForte123!"})
+    res_login = client.post(
+        "/auth/login", json={"email": email, "senha": "SenhaForte123!"}
+    )
     return user, res_login.json()["token_acesso"]
 
 
 # ── Fixtures ─────────────────────────────────────────────────
 
+
 @pytest.fixture
 def admin_logado(client, db_session):
     """Cria e loga um usuário com role 'admin'."""
-    return _registrar_e_logar(client, db_session, "admin@teste.com", "100001", ROLE_ADMIN)
+    return _registrar_e_logar(
+        client, db_session, "admin@teste.com", "100001", ROLE_ADMIN
+    )
 
 
 @pytest.fixture
 def super_admin_logado(client, db_session):
     """Cria e loga um usuário com role 'super_admin'."""
-    return _registrar_e_logar(client, db_session, "super@teste.com", "100002", ROLE_SUPER_ADMIN)
+    return _registrar_e_logar(
+        client, db_session, "super@teste.com", "100002", ROLE_SUPER_ADMIN
+    )
 
 
 @pytest.fixture
 def aluno_logado(client, db_session):
     """Cria e loga um usuário com role 'aluno'."""
-    return _registrar_e_logar(client, db_session, "aluno@teste.com", "100003", ROLE_ALUNO)
+    return _registrar_e_logar(
+        client, db_session, "aluno@teste.com", "100003", ROLE_ALUNO
+    )
 
 
 @pytest.fixture
@@ -80,6 +90,7 @@ def aluno_pendente(client, db_session):
 
 
 # ── Testes de GET /admin/users ───────────────────────────────
+
 
 def test_list_users_admin(client, admin_logado):
     """Admin deve conseguir listar usuários com paginação."""
@@ -104,10 +115,14 @@ def test_list_users_aluno_bloqueado(client, aluno_logado):
     res = client.get("/admin/users", headers=headers)
 
     assert res.status_code == 403
-    assert "permissão" in res.json()["detail"].lower() or "Acesso negado" in res.json()["detail"]
+    assert (
+        "permissão" in res.json()["detail"].lower()
+        or "Acesso negado" in res.json()["detail"]
+    )
 
 
 # ── Testes de GET /admin/users/pending ───────────────────────
+
 
 def test_list_pending_admin(client, admin_logado, aluno_pendente):
     """Admin deve ver os usuários pendentes na lista."""
@@ -132,6 +147,7 @@ def test_list_pending_aluno_bloqueado(client, aluno_logado):
 
 
 # ── Testes de PATCH /admin/users/{user_id}/status ────────────
+
 
 def test_change_status_aprovar_admin(client, admin_logado, aluno_pendente):
     """Admin deve conseguir aprovar (mudar para 'ativo') um aluno pendente."""
@@ -177,7 +193,9 @@ def test_change_status_aluno_bloqueado(client, aluno_logado, aluno_pendente):
     assert res.status_code == 403
 
 
-def test_change_status_admin_nao_altera_superadmin(client, admin_logado, super_admin_logado):
+def test_change_status_admin_nao_altera_superadmin(
+    client, admin_logado, super_admin_logado
+):
     """Um admin normal não pode alterar o status de um super_admin (403)."""
     _admin, token_admin = admin_logado
     super_admin, _token_super = super_admin_logado
@@ -210,6 +228,7 @@ def test_change_status_invalido(client, admin_logado, aluno_pendente):
 
 # ── Testes de PATCH /admin/users/{user_id}/role ──────────────
 
+
 def test_change_role_promover_aluno(client, admin_logado, aluno_logado):
     """Admin deve conseguir promover um aluno a admin."""
     _admin, token = admin_logado
@@ -241,7 +260,9 @@ def test_change_role_auto_rebaixamento(client, admin_logado):
     assert "próprio cargo" in res.json()["detail"].lower()
 
 
-def test_change_role_admin_nao_rebaixa_superadmin(client, admin_logado, super_admin_logado):
+def test_change_role_admin_nao_rebaixa_superadmin(
+    client, admin_logado, super_admin_logado
+):
     """Admin normal não pode rebaixar um super_admin (403)."""
     _admin, token_admin = admin_logado
     super_admin, _token_super = super_admin_logado
@@ -278,16 +299,18 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
     headers = {"Authorization": f"Bearer {token}"}
 
     # Como a API possui proteção contra auto-rebaixamento e a checagem
-    # verifica se há <= 1 admin ativo (o que é matematicamente inalcançável 
-    # sem concorrência, já que o próprio requisitante + alvo = 2), 
-    # nós usamos um mock para simular a condição de corrida onde 
+    # verifica se há <= 1 admin ativo (o que é matematicamente inalcançável
+    # sem concorrência, já que o próprio requisitante + alvo = 2),
+    # nós usamos um mock para simular a condição de corrida onde
     # a query de contagem retorna 1 no momento da verificação.
-    
+
     from unittest.mock import patch
 
     from tests.test_admin_routes import ROLE_ADMIN, _registrar_e_logar
-    
-    alvo, _ = _registrar_e_logar(client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN)
+
+    alvo, _ = _registrar_e_logar(
+        client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN
+    )
 
     with patch("sqlalchemy.orm.query.Query.scalar", return_value=1):
         res = client.patch(
@@ -301,6 +324,7 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
 
 
 # ── Testes de DELETE /admin/users/{user_id} ──────────────────
+
 
 def test_delete_user_super_admin(client, super_admin_logado, aluno_logado):
     """Super Admin deve conseguir excluir (inativar) um usuário."""
@@ -323,4 +347,7 @@ def test_delete_user_admin_bloqueado(client, admin_logado, aluno_logado):
     res = client.delete(f"/admin/users/{aluno.id}", headers=headers)
 
     assert res.status_code == 403
-    assert "permissão" in res.json()["detail"].lower() or "acesso negado" in res.json()["detail"].lower()
+    assert (
+        "permissão" in res.json()["detail"].lower()
+        or "acesso negado" in res.json()["detail"].lower()
+    )

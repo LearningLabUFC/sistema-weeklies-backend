@@ -75,7 +75,9 @@ def main():
         executar_comando_python(["alembic", "upgrade", "head"])
         print("✅ Banco de dados atualizado com sucesso.")
     except subprocess.CalledProcessError:
-        print("❌ Erro ao aplicar migrações. Verifique se o container do banco está saudável.")
+        print(
+            "❌ Erro ao aplicar migrações. Verifique se o container do banco está saudável."
+        )
         sys.exit(1)
 
     # 3. Iniciar o servidor Uvicorn
@@ -83,15 +85,17 @@ def main():
     print("📄 Swagger UI: http://localhost:8000/docs")
     print("❤️  Health check: http://localhost:8000/api/health\n")
     try:
-        executar_comando_python([
-            "uvicorn",
-            "app.main:app",
-            "--reload",
-            "--host",
-            "0.0.0.0",
-            "--port",
-            "8000",
-        ])
+        executar_comando_python(
+            [
+                "uvicorn",
+                "app.main:app",
+                "--reload",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000",
+            ]
+        )
     except KeyboardInterrupt:
         print("\n👋 Servidor finalizado pelo usuário.")
     except subprocess.CalledProcessError:

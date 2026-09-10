@@ -11,6 +11,7 @@ STATUSES = [
     {"id": uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3"), "nome": "inativo"},
 ]
 
+
 def seed_statuses():
     """Insere os status padrão se eles não existirem."""
     db: Session = SessionLocal()
@@ -26,6 +27,7 @@ def seed_statuses():
         db.commit()
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     print("Executando seed de status...")

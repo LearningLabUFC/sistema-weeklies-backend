@@ -1,11 +1,14 @@
 """Helpers OTP para o Redis."""
+
 import logging
+
 from app.config import settings
 from app.core.redis.connection import get_redis
 
 logger = logging.getLogger("uvicorn.error")
 
 _OTP_PREFIX = "otp"
+
 
 async def salvar_otp(email: str, codigo: str) -> None:
     r = get_redis()
@@ -18,6 +21,7 @@ async def salvar_otp(email: str, codigo: str) -> None:
         settings.OTP_EXPIRE_MINUTES,
     )
 
+
 async def verificar_otp(email: str, codigo: str) -> bool:
     r = get_redis()
     chave = f"{_OTP_PREFIX}:{email}"
@@ -28,6 +32,7 @@ async def verificar_otp(email: str, codigo: str) -> bool:
 
     await r.delete(chave)
     return True
+
 
 async def deletar_otp(email: str) -> None:
     r = get_redis()
