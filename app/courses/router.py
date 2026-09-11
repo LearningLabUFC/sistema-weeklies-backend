@@ -13,7 +13,7 @@ router = APIRouter(
 
 
 @router.get(
-    "/cursos",
+    "",
     response_model=list[CursoResumo],
     status_code=200,
     summary="Listar cursos",
