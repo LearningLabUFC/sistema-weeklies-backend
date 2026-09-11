@@ -16,7 +16,7 @@
 5. [Endpoints — Infraestrutura e Saúde](#5-endpoints--infraestrutura-e-saúde)
 6. [Endpoints — Autenticação e Identidade (`/auth`)](#6-endpoints--autenticação-e-identidade-auth)
 7. [Endpoints — Perfil do Usuário (`/users`)](#7-endpoints--perfil-do-usuário-users)
-8. [Endpoints — Dados Gerais de Domínio (`/domain`)](#8-endpoints--dados-gerais-de-domínio-domain)
+8. [Endpoints — Cursos (`/courses`)](#8-endpoints--cursos-courses)
 9. [Endpoints — Administração e RBAC (`/admin`)](#9-endpoints--administração-e-rbac-admin)
 10. [Interfaces TypeScript (Referência para o Frontend)](#10-interfaces-typescript-referência-para-o-frontend)
 
@@ -494,9 +494,9 @@ Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
 
 ---
 
-## 8. Endpoints — Dados Gerais de Domínio (`/domain`)
+## 8. Endpoints — Cursos (`/courses`)
 
-### 8.1. `GET /domain/cursos`
+### 8.1. `GET /courses`
 
 > Lista todos os cursos acadêmicos cadastrados no sistema.
 
