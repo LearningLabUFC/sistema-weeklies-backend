@@ -1,14 +1,14 @@
 """
 Testes unitários para utilitários de segurança.
 
-Cobre as 3 áreas do módulo app.utils.security:
+Cobre as 3 áreas do módulo app.core.security:
 - Hashing de senhas (bcrypt)
 - Tokens JWT (acesso, atualização, redefinição)
 - Geração de OTP
 """
 
 from app.config import settings
-from app.utils.security import (
+from app.core.security import (
     criar_token_acesso,
     criar_token_atualizacao,
     criar_token_redefinicao,

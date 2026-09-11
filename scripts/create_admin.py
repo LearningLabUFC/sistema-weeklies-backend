@@ -6,12 +6,12 @@ from datetime import date, datetime, timezone
 # Adiciona o diretório raiz ao path para poder importar o app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.core.security import hash_senha
 from app.database import SessionLocal
 from app.models.course import Course
 from app.models.role import Role
 from app.models.status import Status
 from app.models.user import User
-from app.utils.security import hash_senha
 
 
 def create_super_admin():

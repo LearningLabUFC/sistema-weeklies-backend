@@ -12,9 +12,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.security import decodificar_token
 from app.database import get_db
 from app.models.user import User
-from app.utils.security import decodificar_token
 
 oauth2_scheme = HTTPBearer()
 
@@ -44,7 +44,7 @@ async def get_current_user(
 
     jti = payload.get("jti")
     if jti:
-        from app.redis import token_na_blacklist
+        from app.core.redis.blacklist import token_na_blacklist
 
         if await token_na_blacklist(jti):
             raise credenciais_exception

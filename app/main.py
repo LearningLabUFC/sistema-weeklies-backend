@@ -12,9 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.admin import router as admin_router
+from app.auth import router as auth_router
+from app.core.redis.connection import encerrar_redis, iniciar_redis
 from app.database import SessionLocal
-from app.redis import encerrar_redis, iniciar_redis
-from app.routers import admin, auth, domain, users
+from app.domain import router as domain_router
+from app.users import router as users_router
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -63,10 +66,10 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────────
 
-app.include_router(admin.router)
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(domain.router)
+app.include_router(admin_router.router)
+app.include_router(auth_router.router)
+app.include_router(users_router.router)
+app.include_router(domain_router.router)
 
 
 # ── Health check ─────────────────────────────────────────────
