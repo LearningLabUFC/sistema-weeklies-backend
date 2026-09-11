@@ -1,49 +1,18 @@
-"""
-Router — Perfil do Usuário
-
-Endpoints: obter perfil, atualizar perfil.
-Dados reais obtidos do banco de dados via token JWT.
-"""
-
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.schemas import ErroPadrao
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
-from app.schemas import (
-    ErroPadrao,
-    UpdateProfileRequest,
-    UsuarioCompleto,
-    UsuarioPerfilResponse,
-)
+from app.users.schemas import UpdateProfileRequest, UsuarioPerfilResponse
+from app.users.service import svc_get_my_profile, svc_update_my_profile
 
 router = APIRouter(
     prefix="/users",
     tags=["Perfil do Usuário"],
 )
 
-
-def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
-    """Converte o modelo ORM User para o schema Pydantic UsuarioCompleto."""
-    return UsuarioCompleto(
-        id=usuario.id,
-        nome_completo=usuario.nome_completo,
-        email=usuario.email,
-        matricula=usuario.matricula,
-        data_nascimento=usuario.data_nascimento,
-        data_ingresso=usuario.data_ingresso,
-        meta_horas_semanais=usuario.meta_horas_semanais,
-        foto_perfil=usuario.foto_perfil,
-        curso_id=usuario.curso_id,
-        status_id=usuario.status_id or UUID("00000000-0000-0000-0000-000000000000"),
-        global_role=usuario.global_role or UUID("00000000-0000-0000-0000-000000000000"),
-    )
-
-
-# ── GET /users/me ────────────────────────────────────────────
 
 @router.get(
     "/me",
@@ -64,7 +33,9 @@ def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
                     "examples": {
                         "naoAutenticado": {
                             "summary": "Não autenticado",
-                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                            "value": {
+                                "mensagem": "Token de acesso ausente ou inválido."
+                            },
                         },
                     },
                 },
@@ -75,13 +46,8 @@ def _build_usuario_completo(usuario: User) -> UsuarioCompleto:
 async def get_my_profile(
     current_user: User = Depends(get_current_user),
 ) -> UsuarioPerfilResponse:
-    return UsuarioPerfilResponse(
-        mensagem="Perfil obtido com sucesso.",
-        usuario=_build_usuario_completo(current_user),
-    )
+    return svc_get_my_profile(current_user)
 
-
-# ── PUT /users/me ────────────────────────────────────────────
 
 @router.put(
     "/me",
@@ -102,7 +68,9 @@ async def get_my_profile(
                     "examples": {
                         "naoAutenticado": {
                             "summary": "Não autenticado",
-                            "value": {"mensagem": "Token de acesso ausente ou inválido."},
+                            "value": {
+                                "mensagem": "Token de acesso ausente ou inválido."
+                            },
                         },
                     },
                 },
@@ -116,7 +84,9 @@ async def get_my_profile(
                     "examples": {
                         "emailDuplicado": {
                             "summary": "E-mail duplicado",
-                            "value": {"mensagem": "Este e-mail já está em uso por outro usuário."},
+                            "value": {
+                                "mensagem": "Este e-mail já está em uso por outro usuário."
+                            },
                         },
                     },
                 },
@@ -130,7 +100,9 @@ async def get_my_profile(
                     "examples": {
                         "nomeVazio": {
                             "summary": "Nome vazio",
-                            "value": {"mensagem": "O nome completo não pode ser uma string vazia."},
+                            "value": {
+                                "mensagem": "O nome completo não pode ser uma string vazia."
+                            },
                         },
                     },
                 },
@@ -143,31 +115,4 @@ async def update_my_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UsuarioPerfilResponse:
-    # Atualizar nome completo
-    if body.nome_completo is not None:
-        current_user.nome_completo = body.nome_completo
-
-    # Atualizar e-mail (verificar duplicidade)
-    if body.email is not None and body.email != current_user.email:
-        email_existente = db.query(User).filter(
-            User.email == body.email,
-            User.id != current_user.id,
-        ).first()
-        if email_existente:
-            raise HTTPException(
-                status_code=409,
-                detail="Este e-mail já está em uso por outro usuário.",
-            )
-        current_user.email = body.email
-
-    # Atualizar foto de perfil
-    if body.foto_perfil is not None:
-        current_user.foto_perfil = body.foto_perfil
-
-    db.commit()
-    db.refresh(current_user)
-
-    return UsuarioPerfilResponse(
-        mensagem="Perfil atualizado com sucesso.",
-        usuario=_build_usuario_completo(current_user),
-    )
+    return svc_update_my_profile(body, current_user, db)

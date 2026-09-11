@@ -1,13 +1,13 @@
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.schemas import ErroPadrao
+from app.courses.schemas import CursoResumo
+from app.courses.service import svc_listar_cursos
 from app.database import get_db
-from app.models.course import Course
-from app.schemas import CursoResumo, ErroPadrao
 
 router = APIRouter(
-    prefix="/domain",
+    prefix="/courses",
     tags=["Dados Gerais do Sistema"],
 )
 
@@ -34,21 +34,6 @@ router = APIRouter(
                             "nome": "engenharia civil",
                             "ativo": False,
                         },
-                        {
-                            "id": "f6a241fa-51f6-43ca-8849-18aff71be14d",
-                            "nome": "engenharia de produção",
-                            "ativo": True,
-                        },
-                        {
-                            "id": "3a9b258f-4bd4-4699-84b4-97308f32cecf",
-                            "nome": "engenharia de software",
-                            "ativo": True,
-                        },
-                        {
-                            "id": "f42113c4-dcac-4f1d-8396-5e8d65f46a9b",
-                            "nome": "engenharia mecânica",
-                            "ativo": False,
-                        },
                     ]
                 }
             },
@@ -58,22 +43,11 @@ router = APIRouter(
             "content": {
                 "application/json": {
                     "schema": ErroPadrao.model_json_schema(),
-                    "example": {
-                        "mensagem": "Erro interno ao consultar os cursos."
-                    },
+                    "example": {"mensagem": "Erro interno ao consultar os cursos."},
                 }
             },
         },
     },
 )
 async def listar_cursos(db: Session = Depends(get_db)) -> list[CursoResumo]:
-    cursos = db.query(Course).order_by(Course.nome.asc()).all()
-
-    return [
-        CursoResumo(
-            id=curso.id,
-            nome=curso.nome,
-            ativo=curso.ativo,
-        )
-        for curso in cursos
-    ]
+    return svc_listar_cursos(db)

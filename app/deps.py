@@ -12,9 +12,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.security import decodificar_token
 from app.database import get_db
 from app.models.user import User
-from app.utils.security import decodificar_token
 
 oauth2_scheme = HTTPBearer()
 
@@ -41,10 +41,11 @@ async def get_current_user(
     payload = decodificar_token(token)
     if payload is None:
         raise credenciais_exception
-        
+
     jti = payload.get("jti")
     if jti:
-        from app.redis import token_na_blacklist
+        from app.core.redis.blacklist import token_na_blacklist
+
         if await token_na_blacklist(jti):
             raise credenciais_exception
 
@@ -78,6 +79,7 @@ def require_role(allowed_roles: list[str]):
     Dependency factory que verifica se o usuário autenticado possui
     um dos cargos (roles) permitidos.
     """
+
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if not current_user.role or current_user.role.nome not in allowed_roles:
             raise HTTPException(
@@ -85,4 +87,5 @@ def require_role(allowed_roles: list[str]):
                 detail="Acesso negado. Nível de permissão insuficiente.",
             )
         return current_user
+
     return role_checker

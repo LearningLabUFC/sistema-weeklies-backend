@@ -6,12 +6,12 @@ from datetime import date, datetime, timezone
 # Adiciona o diretório raiz ao path para poder importar o app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.core.security import hash_senha
 from app.database import SessionLocal
 from app.models.course import Course
 from app.models.role import Role
 from app.models.status import Status
 from app.models.user import User
-from app.utils.security import hash_senha
 
 
 def create_super_admin():
@@ -20,10 +20,14 @@ def create_super_admin():
         # Verificar se já existe algum super_admin
         super_admin_role = db.query(Role).filter(Role.nome == "super_admin").first()
         if not super_admin_role:
-            print("❌ Erro: Cargo 'super_admin' não encontrado no banco. Rode o seed de cargos primeiro.")
+            print(
+                "❌ Erro: Cargo 'super_admin' não encontrado no banco. Rode o seed de cargos primeiro."
+            )
             return
 
-        admin_existente = db.query(User).filter(User.global_role == super_admin_role.id).first()
+        admin_existente = (
+            db.query(User).filter(User.global_role == super_admin_role.id).first()
+        )
         if admin_existente:
             print(f"⚠️ Já existe um super_admin no sistema: {admin_existente.email}")
             return
@@ -31,7 +35,9 @@ def create_super_admin():
         # Obter status ativo
         status_ativo = db.query(Status).filter(Status.nome == "ativo").first()
         if not status_ativo:
-            print("❌ Erro: Status 'ativo' não encontrado. Rode o seed de status primeiro.")
+            print(
+                "❌ Erro: Status 'ativo' não encontrado. Rode o seed de status primeiro."
+            )
             return
 
         # Precisamos de um curso padrão para associar ao usuário
@@ -55,7 +61,7 @@ def create_super_admin():
             foto_perfil="avatar_padrao.png",
             curso_id=curso.id,
             status_id=status_ativo.id,
-            global_role=super_admin_role.id
+            global_role=super_admin_role.id,
         )
 
         db.add(novo_admin)
@@ -69,6 +75,7 @@ def create_super_admin():
         db.rollback()
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     create_super_admin()

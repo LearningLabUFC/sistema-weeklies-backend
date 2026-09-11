@@ -2,6 +2,7 @@
 Sistema de Gestão LL — Backend
 Entrypoint da aplicação FastAPI.
 """
+
 import os
 from contextlib import asynccontextmanager
 
@@ -11,15 +12,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api_router import api_router
+from app.core.exception_handlers import handle_app_exception
+from app.core.exceptions import AppException
+from app.core.redis.connection import encerrar_redis, iniciar_redis
 from app.database import SessionLocal
-from app.redis import encerrar_redis, iniciar_redis
-from app.routers import admin, auth, domain, users
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 
 # ── Lifecycle (startup / shutdown) ───────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,16 +62,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Exception Handlers ───────────────────────────────────────
+
+app.add_exception_handler(AppException, handle_app_exception)
 
 # ── Routers ──────────────────────────────────────────────────
 
-app.include_router(admin.router)
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(domain.router)
+app.include_router(api_router)
 
 
 # ── Health check ─────────────────────────────────────────────
+
 
 @app.get(
     "/api/health",
@@ -85,6 +90,9 @@ async def health_check():
     except Exception as e:  # noqa: BLE001
         return JSONResponse(
             status_code=503,
-            content={"status": "unhealthy",
-                     "database": "disconnected", "error": str(e)},
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "error": str(e),
+            },
         )

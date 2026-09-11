@@ -28,6 +28,7 @@ Base = declarative_base()
 
 # ── Dependency para injeção via FastAPI ──────────────────────
 
+
 def get_db():
     """
     Gera uma sessão de banco de dados por requisição.

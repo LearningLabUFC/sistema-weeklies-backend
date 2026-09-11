@@ -18,6 +18,7 @@ from app.config import settings
 
 # ── Hashing de senhas ────────────────────────────────────────
 
+
 def hash_senha(senha: str) -> str:
     """Gera o hash bcrypt de uma senha em texto plano."""
     senha_bytes = senha.encode("utf-8")
@@ -43,25 +44,31 @@ def criar_token_acesso(dados: dict, expira_em_minutos: int | None = None) -> str
     expiracao = datetime.now(timezone.utc) + timedelta(
         minutes=expira_em_minutos or settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    payload.update({
-        "exp": expiracao,
-        "iat": datetime.now(timezone.utc),
-        "tipo": "acesso",
-        "jti": str(uuid.uuid4())
-    })
+    payload.update(
+        {
+            "exp": expiracao,
+            "iat": datetime.now(timezone.utc),
+            "tipo": "acesso",
+            "jti": str(uuid.uuid4()),
+        }
+    )
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def criar_token_atualizacao(dados: dict) -> str:
     """Cria um refresh token JWT com expiração de 7 dias e jti."""
     payload = dados.copy()
-    expiracao = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    payload.update({
-        "exp": expiracao,
-        "iat": datetime.now(timezone.utc),
-        "tipo": "atualizacao",
-        "jti": str(uuid.uuid4())
-    })
+    expiracao = datetime.now(timezone.utc) + timedelta(
+        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+    )
+    payload.update(
+        {
+            "exp": expiracao,
+            "iat": datetime.now(timezone.utc),
+            "tipo": "atualizacao",
+            "jti": str(uuid.uuid4()),
+        }
+    )
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -89,6 +96,7 @@ def decodificar_token(token: str) -> dict | None:
 
 
 # ── OTP ──────────────────────────────────────────────────────
+
 
 def gerar_codigo_otp(tamanho: int = 6) -> str:
     """

@@ -11,6 +11,7 @@ ROLES = [
     {"id": uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"), "nome": "aluno"},
 ]
 
+
 def seed_roles():
     """Insere os cargos (roles) padrão se eles não existirem."""
     db: Session = SessionLocal()
@@ -26,6 +27,7 @@ def seed_roles():
         db.commit()
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     print("Executando seed de cargos (roles)...")
