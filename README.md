@@ -96,6 +96,17 @@ Para especificações técnicas aprofundadas, consulte os documentos na pasta [`
 
 ---
 
+## Arquitetura Modular by Feature
+
+Este projeto utiliza a arquitetura **Modular by Feature** (ou *Vertical Slicing*). Em vez de agrupar arquivos por tipo de tecnologia (ex: todos os controllers juntos, todos os services juntos), o código é agrupado pela **funcionalidade (feature)**. 
+
+Cada módulo da aplicação (ex: `auth`, `admin`, `users`) é independente e contém suas próprias regras de negócio, rotas e acesso a dados, dividido internamente em três camadas principais:
+1. **Router (`router.py`)**: Camada Web (FastAPI). Recebe as requisições HTTP, valida payloads de entrada e repassa os dados para o Service.
+2. **Service (`service.py`)**: Camada de Negócios. Contém toda a lógica e as regras do negócio. Esta camada não sabe nada sobre HTTP e levanta exceções semânticas de domínio (`app/core/exceptions.py`).
+3. **Repository (`repository.py`)**: Camada de Dados. Centraliza todas as chamadas ao banco de dados (SQLAlchemy). O Service consome o Repository para buscar ou persistir entidades.
+
+---
+
 ## Estrutura do Projeto
 
 ```text
@@ -103,14 +114,14 @@ sistema-weeklies-backend/
 ├── alembic/              # Configurações e versões de migrações
 ├── app/
 │   ├── models/           # Modelos ORM (User, Role, Status, Course...)
-│   ├── routers/          # Endpoints agrupados por domínio (auth, users, admin, domain)
-│   ├── utils/            # Utilitários (segurança, envio de e-mail, etc.)
-│   ├── config.py         # Configurações centralizadas via pydantic-settings
-│   ├── database.py       # Engine e SessionLocal do SQLAlchemy
-│   ├── deps.py           # Injeção de dependências e autenticação JWT/RBAC
-│   ├── main.py           # Entrypoint da aplicação FastAPI
-│   ├── redis.py          # Conexão e rotinas assíncronas do Redis (OTP/Rate limit)
-│   └── schemas.py        # Schemas de validação e serialização (Pydantic)
+│   ├── core/             # Infraestrutura transversal (config, db, redis, security, exceptions)
+│   ├── auth/             # Módulo de Autenticação (router, service, repository, schemas)
+│   ├── admin/            # Módulo de Administração (router, service, repository, schemas)
+│   ├── users/            # Módulo de Usuários (router, service, repository, schemas)
+│   ├── courses/          # Módulo de Cursos (router, service, repository, schemas)
+│   ├── api_router.py     # Agrupador central de todas as rotas da API
+│   ├── deps.py           # Injeção de dependências (Autenticação JWT, permissões RBAC)
+│   └── main.py           # Entrypoint da aplicação FastAPI
 ├── docs/                 # Documentação técnica do projeto
 ├── scripts/              # Utilitários CLI (ex: criação do primeiro super admin)
 ├── .env.example          # Modelo de variáveis de ambiente
