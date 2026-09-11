@@ -1,11 +1,11 @@
 from sqlalchemy.orm import Session
 
-from app.domain.schemas import CursoResumo
-from app.models.course import Course
+from app.courses.repository import list_all_courses_ordered
+from app.courses.schemas import CursoResumo
 
 
 def svc_listar_cursos(db: Session) -> list[CursoResumo]:
-    cursos = db.query(Course).order_by(Course.nome.asc()).all()
+    cursos = list_all_courses_ordered(db)
 
     return [
         CursoResumo(

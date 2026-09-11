@@ -6,10 +6,17 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
+from app.auth.repository import (
+    create_user,
+    find_user_by_email,
+    find_user_by_id,
+    find_user_by_matricula,
+    update_user,
+)
 from app.auth.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
@@ -26,6 +33,12 @@ from app.auth.schemas import (
 )
 from app.config import settings
 from app.core.email import enviar_email_otp
+from app.core.exceptions import (
+    BadRequestError,
+    ConflictError,
+    RateLimitError,
+    UnauthorizedError,
+)
 from app.core.redis import (
     adicionar_token_blacklist,
     aplicar_cooldown_bruteforce,
@@ -40,7 +53,7 @@ from app.core.redis import (
     verificar_rate_limit_email,
     verificar_rate_limit_ip,
 )
-from app.core.schemas import MensagemResponse, UsuarioCompleto
+from app.core.schemas import MensagemResponse
 from app.core.security import (
     criar_token_acesso,
     criar_token_atualizacao,
@@ -51,19 +64,16 @@ from app.core.security import (
     verificar_senha,
 )
 from app.models.user import User
+from app.users.schemas import UsuarioCompleto
 
 logger = logging.getLogger("uvicorn.error")
 
 
 async def svc_register_user(body: RegisterRequest, db: Session) -> AuthTokenResponse:
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(
-            status_code=409, detail="Este e-mail já está cadastrado no sistema."
-        )
-    if db.query(User).filter(User.matricula == body.matricula).first():
-        raise HTTPException(
-            status_code=409, detail="Esta matrícula já pertence a outro usuário."
-        )
+    if find_user_by_email(db, body.email):
+        raise ConflictError("Este e-mail já está cadastrado no sistema.")
+    if find_user_by_matricula(db, body.matricula):
+        raise ConflictError("Esta matrícula já pertence a outro usuário.")
 
     novo_usuario = User(
         nome_completo=body.nome_completo,
@@ -78,9 +88,7 @@ async def svc_register_user(body: RegisterRequest, db: Session) -> AuthTokenResp
         status_id=UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1"),
         global_role=UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"),
     )
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
+    novo_usuario = create_user(db, novo_usuario)
 
     token_dados = {"sub": str(novo_usuario.id)}
     token_acesso = criar_token_acesso(token_dados)
@@ -112,15 +120,11 @@ async def svc_register_user(body: RegisterRequest, db: Session) -> AuthTokenResp
 
 
 async def svc_login_user(body: LoginRequest, db: Session) -> AuthTokenResponse:
-    usuario = db.query(User).filter(User.email == body.email).first()
+    usuario = find_user_by_email(db, body.email)
     if not usuario or usuario.status.nome == "inativo":
-        raise HTTPException(
-            status_code=401, detail="E-mail ou senha incorretos, ou conta inativa."
-        )
+        raise UnauthorizedError("E-mail ou senha incorretos, ou conta inativa.")
     if not verificar_senha(body.senha, usuario.senha_hash):
-        raise HTTPException(
-            status_code=401, detail="E-mail ou senha incorretos. Tente novamente."
-        )
+        raise UnauthorizedError("E-mail ou senha incorretos. Tente novamente.")
 
     token_dados = {"sub": str(usuario.id)}
     token_acesso = criar_token_acesso(token_dados)
@@ -159,17 +163,15 @@ async def svc_forgot_password(
         "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
     )
     if not await verificar_rate_limit_ip(client_ip):
-        raise HTTPException(
-            status_code=429,
-            detail="Muitas solicitações deste endereço. Tente novamente mais tarde.",
+        raise RateLimitError(
+            "Muitas solicitações deste endereço. Tente novamente mais tarde.",
         )
     if not await verificar_rate_limit_email(body.email):
-        raise HTTPException(
-            status_code=429,
-            detail="Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos.",
+        raise RateLimitError(
+            "Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos.",
         )
 
-    usuario = db.query(User).filter(User.email == body.email).first()
+    usuario = find_user_by_email(db, body.email)
     if not usuario:
         await incrementar_rate_limit_ip(client_ip)
         return MensagemResponse(mensagem=mensagem_generica)
@@ -185,9 +187,8 @@ async def svc_forgot_password(
 
 async def svc_verify_code(body: VerifyCodeRequest, db: Session) -> VerifyCodeResponse:
     if await verificar_bloqueio_bruteforce(body.email):
-        raise HTTPException(
-            status_code=429,
-            detail=f"Muitas tentativas incorretas. Solicite um novo código após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos.",
+        raise RateLimitError(
+            f"Muitas tentativas incorretas. Solicite um novo código após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos.",
         )
 
     otp_valido = await verificar_otp(body.email, body.codigo)
@@ -195,21 +196,16 @@ async def svc_verify_code(body: VerifyCodeRequest, db: Session) -> VerifyCodeRes
         tentativas = await registrar_tentativa_falha(body.email)
         if tentativas >= settings.VERIFY_CODE_MAX_ATTEMPTS:
             await aplicar_cooldown_bruteforce(body.email)
-            raise HTTPException(
-                status_code=429,
-                detail=f"Limite de tentativas atingido. O código foi invalidado. Solicite um novo após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos.",
+            raise RateLimitError(
+                f"Limite de tentativas atingido. O código foi invalidado. Solicite um novo após {settings.VERIFY_CODE_COOLDOWN_MINUTES} minutos.",
             )
-        raise HTTPException(
-            status_code=401, detail="O código inserido é inválido ou já expirou."
-        )
+        raise UnauthorizedError("O código inserido é inválido ou já expirou.")
 
     await limpar_tentativas(body.email)
 
-    usuario = db.query(User).filter(User.email == body.email).first()
+    usuario = find_user_by_email(db, body.email)
     if not usuario:
-        raise HTTPException(
-            status_code=401, detail="O código inserido é inválido ou já expirou."
-        )
+        raise UnauthorizedError("O código inserido é inválido ou já expirou.")
 
     token = criar_token_redefinicao(str(usuario.id))
     return VerifyCodeResponse(
@@ -222,32 +218,27 @@ async def svc_reset_password(
 ) -> MensagemResponse:
     payload = decodificar_token(body.token_redefinicao)
     if payload is None or payload.get("tipo") != "redefinicao":
-        raise HTTPException(
-            status_code=401,
-            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        raise UnauthorizedError(
+            "Sessão de redefinição expirada. Solicite um novo código.",
         )
     user_id = payload.get("sub")
     if not user_id:
-        raise HTTPException(
-            status_code=401,
-            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        raise UnauthorizedError(
+            "Sessão de redefinição expirada. Solicite um novo código.",
         )
 
-    usuario = db.query(User).filter(User.id == user_id).first()
+    usuario = find_user_by_id(db, user_id)
     if not usuario:
-        raise HTTPException(
-            status_code=401,
-            detail="Sessão de redefinição expirada. Solicite um novo código.",
+        raise UnauthorizedError(
+            "Sessão de redefinição expirada. Solicite um novo código.",
         )
 
     if verificar_senha(body.nova_senha, usuario.senha_hash):
-        raise HTTPException(
-            status_code=400, detail="A nova senha deve ser diferente da senha anterior."
-        )
+        raise BadRequestError("A nova senha deve ser diferente da senha anterior.")
 
     usuario.senha_hash = hash_senha(body.nova_senha)
     usuario.senha_atualizada_em = datetime.now(timezone.utc)
-    db.commit()
+    update_user(db, usuario)
 
     logger.info("🔒 Senha redefinida com sucesso para user_id=%s", user_id)
     return MensagemResponse(
@@ -283,20 +274,16 @@ async def svc_refresh_token(
 ) -> RefreshTokenResponse:
     payload = decodificar_token(body.token_atualizacao)
     if payload is None or payload.get("tipo") != "atualizacao":
-        raise HTTPException(
-            status_code=401, detail="Refresh token inválido ou expirado."
-        )
+        raise UnauthorizedError("Refresh token inválido ou expirado.")
 
     jti = payload.get("jti")
     if jti and await token_na_blacklist(jti):
-        raise HTTPException(status_code=401, detail="Refresh token já foi utilizado.")
+        raise UnauthorizedError("Refresh token já foi utilizado.")
 
     user_id = payload.get("sub")
-    usuario = db.query(User).filter(User.id == user_id).first()
+    usuario = find_user_by_id(db, user_id)
     if not usuario or usuario.status.nome != "ativo":
-        raise HTTPException(
-            status_code=401, detail="Refresh token inválido ou expirado."
-        )
+        raise UnauthorizedError("Refresh token inválido ou expirado.")
 
     if jti:
         exp = payload.get("exp", 0)
@@ -319,18 +306,14 @@ async def svc_change_password(
     body: ChangePasswordRequest, current_user: User, db: Session
 ) -> MensagemResponse:
     if not verificar_senha(body.senha_atual, current_user.senha_hash):
-        raise HTTPException(
-            status_code=401, detail="A senha atual informada está incorreta."
-        )
+        raise UnauthorizedError("A senha atual informada está incorreta.")
 
     if verificar_senha(body.nova_senha, current_user.senha_hash):
-        raise HTTPException(
-            status_code=400, detail="A nova senha deve ser diferente da senha atual."
-        )
+        raise BadRequestError("A nova senha deve ser diferente da senha atual.")
 
     current_user.senha_hash = hash_senha(body.nova_senha)
     current_user.senha_atualizada_em = datetime.now(timezone.utc)
-    db.commit()
+    update_user(db, current_user)
 
     return MensagemResponse(mensagem="Senha alterada com sucesso.")
 
@@ -339,12 +322,11 @@ async def svc_delete_account(
     body: DeleteAccountRequest, current_user: User, db: Session
 ) -> MensagemResponse:
     if not verificar_senha(body.senha, current_user.senha_hash):
-        raise HTTPException(
-            status_code=401,
-            detail="A senha informada está incorreta. A conta não foi excluída.",
+        raise UnauthorizedError(
+            "A senha informada está incorreta. A conta não foi excluída.",
         )
 
     current_user.status_id = UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3")  # Inativo
-    db.commit()
+    update_user(db, current_user)
 
     return MensagemResponse(mensagem="Sua conta foi desativada com sucesso.")

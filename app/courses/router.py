@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.schemas import ErroPadrao
+from app.courses.schemas import CursoResumo
+from app.courses.service import svc_listar_cursos
 from app.database import get_db
-from app.domain.schemas import CursoResumo
-from app.domain.service import svc_listar_cursos
 
 router = APIRouter(
-    prefix="/domain",
+    prefix="/courses",
     tags=["Dados Gerais do Sistema"],
 )
 

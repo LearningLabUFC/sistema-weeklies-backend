@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.core.schemas import UsuarioCompleto
 from app.core.validators import (
     _MATRICULA_MSG,
     _MATRICULA_REGEX,
@@ -13,6 +12,7 @@ from app.core.validators import (
     _SENHA_REGEX,
     _validar_nome_completo,
 )
+from app.users.schemas import UsuarioCompleto
 
 
 class RegisterRequest(BaseModel):

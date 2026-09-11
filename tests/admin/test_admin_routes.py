@@ -306,8 +306,6 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
 
     from unittest.mock import patch
 
-    from tests.test_admin_routes import ROLE_ADMIN, _registrar_e_logar
-
     alvo, _ = _registrar_e_logar(
         client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN
     )

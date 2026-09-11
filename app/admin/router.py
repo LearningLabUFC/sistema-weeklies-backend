@@ -16,10 +16,11 @@ from app.admin.service import (
     svc_list_all_users,
     svc_list_pending_users,
 )
-from app.core.schemas import MensagemResponse, UsuarioCompleto
+from app.core.schemas import MensagemResponse
 from app.database import get_db
 from app.deps import require_role
 from app.models.user import User
+from app.users.schemas import UsuarioCompleto
 
 router = APIRouter(
     prefix="/admin",

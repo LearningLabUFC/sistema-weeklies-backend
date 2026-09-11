@@ -1,20 +1,31 @@
 from uuid import UUID
 
-from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.admin.repository import (
+    count_active_admins,
+    find_role_by_name,
+    find_status_by_name,
+    find_user_by_id,
+    list_pending_users,
+    list_users_paginated,
+    update_user,
+)
 from app.admin.schemas import (
     ChangeRoleRequest,
     ChangeStatusRequest,
     UsuarioListItem,
     UsuarioListResponse,
 )
-from app.core.helpers import build_usuario_completo
-from app.core.schemas import MensagemResponse, UsuarioCompleto
-from app.models.role import Role
-from app.models.status import Status
+from app.core.exceptions import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+)
+from app.core.schemas import MensagemResponse
 from app.models.user import User
+from app.users.schemas import UsuarioCompleto, build_usuario_completo
 
 
 def _build_usuario_list_item(usuario: User) -> UsuarioListItem:
@@ -40,29 +51,8 @@ def svc_list_all_users(
     busca: str | None,
     db: Session,
 ) -> UsuarioListResponse:
-    query = db.query(User)
-
-    if status_filtro:
-        query = query.join(Status, User.status_id == Status.id).filter(
-            Status.nome == status_filtro
-        )
-
-    if role_filtro:
-        query = query.join(Role, User.global_role == Role.id).filter(
-            Role.nome == role_filtro
-        )
-
-    if busca:
-        termo = f"%{busca}%"
-        query = query.filter(
-            (func.lower(User.nome_completo).like(func.lower(termo)))
-            | (func.lower(User.email).like(func.lower(termo)))
-        )
-
-    total = query.count()
-    offset = (pagina - 1) * limite
-    usuarios = (
-        query.order_by(User.nome_completo.asc()).offset(offset).limit(limite).all()
+    usuarios, total = list_users_paginated(
+        db, pagina, limite, status_filtro, role_filtro, busca
     )
 
     return UsuarioListResponse(
@@ -74,7 +64,7 @@ def svc_list_all_users(
 
 
 def svc_list_pending_users(db: Session) -> list[UsuarioCompleto]:
-    pendentes = db.query(User).join(Status).filter(Status.nome == "pendente").all()
+    pendentes = list_pending_users(db)
     return [build_usuario_completo(u) for u in pendentes]
 
 
@@ -82,26 +72,23 @@ def svc_change_user_status(
     user_id: UUID, body: ChangeStatusRequest, admin_user: User, db: Session
 ) -> MensagemResponse:
     if body.novo_status not in ["ativo", "inativo"]:
-        raise HTTPException(
-            status_code=400, detail="Status inválido. Escolha 'ativo' ou 'inativo'."
-        )
+        raise BadRequestError("Status inválido. Escolha 'ativo' ou 'inativo'.")
 
-    usuario = db.query(User).filter(User.id == user_id).first()
+    usuario = find_user_by_id(db, user_id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        raise NotFoundError("Usuário não encontrado.")
 
     if usuario.role.nome == "super_admin" and admin_user.role.nome != "super_admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Apenas outro super_admin pode alterar um super_admin.",
+        raise ForbiddenError(
+            "Apenas outro super_admin pode alterar um super_admin.",
         )
 
-    status_obj = db.query(Status).filter(Status.nome == body.novo_status).first()
+    status_obj = find_status_by_name(db, body.novo_status)
     if not status_obj:
-        raise HTTPException(status_code=404, detail="Status não encontrado no banco.")
+        raise NotFoundError("Status não encontrado no banco.")
 
     usuario.status_id = status_obj.id
-    db.commit()
+    update_user(db)
 
     return MensagemResponse(
         mensagem=f"Status do usuário alterado para {body.novo_status} com sucesso."
@@ -111,58 +98,43 @@ def svc_change_user_status(
 def svc_change_user_role(
     user_id: UUID, body: ChangeRoleRequest, admin_user: User, db: Session
 ) -> MensagemResponse:
-    novo_role = db.query(Role).filter(Role.nome == body.role_nome).first()
+    novo_role = find_role_by_name(db, body.role_nome)
     if not novo_role:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cargo '{body.role_nome}' inválido. Valores aceitos: 'super_admin', 'admin', 'aluno'.",
+        raise BadRequestError(
+            f"Cargo '{body.role_nome}' inválido. Valores aceitos: 'super_admin', 'admin', 'aluno'.",
         )
 
-    usuario = db.query(User).filter(User.id == user_id).first()
+    usuario = find_user_by_id(db, user_id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        raise NotFoundError("Usuário não encontrado.")
 
     if usuario.status.nome != "ativo":
-        raise HTTPException(
-            status_code=400,
-            detail="Só é possível alterar o cargo de usuários com status ativo.",
+        raise BadRequestError(
+            "Só é possível alterar o cargo de usuários com status ativo.",
         )
 
     if usuario.id == admin_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Você não pode alterar o seu próprio cargo. Peça a outro administrador.",
+        raise ForbiddenError(
+            "Você não pode alterar o seu próprio cargo. Peça a outro administrador.",
         )
 
     if usuario.role.nome == "super_admin" and admin_user.role.nome != "super_admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Apenas um super_admin pode alterar o cargo de outro super_admin.",
+        raise ForbiddenError(
+            "Apenas um super_admin pode alterar o cargo de outro super_admin.",
         )
-
-    roles_admin = db.query(Role.id).filter(Role.nome.in_(["admin", "super_admin"]))
-    status_ativo = db.query(Status.id).filter(Status.nome == "ativo").scalar()
 
     if usuario.role.nome in ["admin", "super_admin"] and body.role_nome not in [
         "admin",
         "super_admin",
     ]:
-        total_admins_ativos = (
-            db.query(func.count(User.id))
-            .filter(
-                User.global_role.in_(roles_admin.subquery().select()),
-                User.status_id == status_ativo,
-            )
-            .scalar()
-        )
+        total_admins_ativos = count_active_admins(db)
         if total_admins_ativos <= 1:
-            raise HTTPException(
-                status_code=409,
-                detail="Operação negada. O sistema deve ter pelo menos um administrador ativo.",
+            raise ConflictError(
+                "Operação negada. O sistema deve ter pelo menos um administrador ativo.",
             )
 
     usuario.global_role = novo_role.id
-    db.commit()
+    update_user(db)
 
     return MensagemResponse(
         mensagem=f"Cargo do usuário alterado para '{body.role_nome}' com sucesso.",
@@ -170,12 +142,12 @@ def svc_change_user_role(
 
 
 def svc_delete_user_by_admin(user_id: UUID, db: Session) -> MensagemResponse:
-    usuario = db.query(User).filter(User.id == user_id).first()
+    usuario = find_user_by_id(db, user_id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        raise NotFoundError("Usuário não encontrado.")
 
-    inativo_status = db.query(Status).filter(Status.nome == "inativo").first()
+    inativo_status = find_status_by_name(db, "inativo")
     usuario.status_id = inativo_status.id
-    db.commit()
+    update_user(db)
 
     return MensagemResponse(mensagem="Usuário excluído (inativado) com sucesso.")
