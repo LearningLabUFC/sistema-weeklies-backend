@@ -49,6 +49,13 @@ def tables():
         if not db.query(Course).filter(Course.id == curso_id).first():
             db.add(Course(id=curso_id, nome="Engenharia de Software Teste", ativo=True))
 
+        # Seed de Setor padrão para testes
+        from app.models.sector import Sector
+
+        setor_id = uuid.UUID("4fa85f64-5717-4562-b3fc-2c963f66afa1")
+        if not db.query(Sector).filter(Sector.id == setor_id).first():
+            db.add(Sector(id=setor_id, nome="Desenvolvimento Teste"))
+
         db.commit()
     finally:
         db.close()

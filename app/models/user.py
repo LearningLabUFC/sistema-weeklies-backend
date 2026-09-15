@@ -48,5 +48,8 @@ class User(Base):
     status = relationship("Status")
     role = relationship("Role")
 
+    # relação N:N com setores (via tabela associativa)
+    setores = relationship("SectorUser", back_populates="usuario")
+
     def __repr__(self) -> str:
         return f"<User {self.nome_completo} ({self.email})>"

@@ -19,6 +19,7 @@
 8. [Endpoints — Cursos (`/courses`)](#8-endpoints--cursos-courses)
 9. [Endpoints — Administração e RBAC (`/admin`)](#9-endpoints--administração-e-rbac-admin)
 10. [Interfaces TypeScript (Referência para o Frontend)](#10-interfaces-typescript-referência-para-o-frontend)
+11. [Endpoints — Setores (`/sectors`)](#11-endpoints--setores-sectors)
 
 ---
 
@@ -804,4 +805,173 @@ export interface ChangeStatusRequest {
 export interface ChangeRoleRequest {
   role_nome: "super_admin" | "admin" | "aluno";
 }
+
+export interface CreateSectorRequest {
+  nome: string;
+  descricao?: string;
+}
+
+export interface UpdateSectorRequest {
+  nome?: string;
+  descricao?: string;
+  ativo?: boolean;
+}
+
+export interface SectorMemberItem {
+  id: string;
+  nome_completo: string;
+  email: string;
+  papel: 'lider' | 'membro';
+}
+
+export interface SectorListItem {
+  id: string;
+  nome: string;
+  descricao?: string;
+  ativo: boolean;
+  criado_em: string;
+  qtd_membros: number;
+  qtd_lideres: number;
+}
+
+export interface SectorDetail {
+  id: string;
+  nome: string;
+  descricao?: string;
+  ativo: boolean;
+  criado_em: string;
+  membros: SectorMemberItem[];
+}
 ```
+
+---
+
+## 11. Endpoints — Setores (`/sectors`)
+
+Rotas para gestão de setores e associação N:N entre usuários e setores, com definição de papel (`lider` ou `membro`).
+
+### 11.1. Criar um novo setor
+
+* **Rota:** `POST /sectors`
+* **Permissão:** `super_admin`, `admin`
+* **Body:**
+  ```json
+  {
+    "nome": "Desenvolvimento",
+    "descricao": "Setor de desenvolvimento de software."
+  }
+  ```
+* **Respostas:**
+  * **201 Created**: Setor criado com sucesso.
+  * **409 Conflict**: Já existe um setor com este nome.
+
+### 11.2. Listar setores
+
+* **Rota:** `GET /sectors?pagina=1&limite=20`
+* **Permissão:** Todos os usuários autenticados (`super_admin`, `admin`, `aluno`)
+* **Response (200 OK):**
+  ```json
+  {
+    "setores": [
+      {
+        "id": "4fa85f64-...",
+        "nome": "Desenvolvimento",
+        "descricao": "Setor de desenvolvimento de software.",
+        "ativo": true,
+        "criado_em": "2026-09-15T15:00:00Z",
+        "qtd_membros": 5,
+        "qtd_lideres": 1
+      }
+    ],
+    "total": 1,
+    "pagina": 1,
+    "limite": 20
+  }
+  ```
+
+### 11.3. Detalhar setor (com membros)
+
+* **Rota:** `GET /sectors/{sector_id}`
+* **Permissão:** `super_admin`, `admin`
+* **Response (200 OK):**
+  ```json
+  {
+    "id": "4fa85f64-...",
+    "nome": "Desenvolvimento",
+    "descricao": "Setor de desenvolvimento de software.",
+    "ativo": true,
+    "criado_em": "2026-09-15T15:00:00Z",
+    "membros": [
+      {
+        "id": "3fa85f64-...",
+        "nome_completo": "João Silva",
+        "email": "joao@exemplo.com",
+        "papel": "membro"
+      }
+    ]
+  }
+  ```
+  * **404 Not Found**: Setor não encontrado.
+
+### 11.4. Atualizar setor
+
+* **Rota:** `PATCH /sectors/{sector_id}`
+* **Permissão:** `super_admin`, `admin`
+* **Body:**
+  ```json
+  {
+    "nome": "Dev Web",
+    "descricao": "Desenvolvimento focado em web.",
+    "ativo": true
+  }
+  ```
+* **Respostas:**
+  * **200 OK**: Setor atualizado com sucesso.
+  * **409 Conflict**: Nome já existe em outro setor.
+
+### 11.5. Desativar setor (Soft Delete)
+
+* **Rota:** `DELETE /sectors/{sector_id}`
+* **Permissão:** `super_admin`
+* **Respostas:**
+  * **200 OK**: Setor desativado com sucesso.
+  * **403 Forbidden**: Caso um `admin` comum tente deletar.
+
+### 11.6. Adicionar membro ao setor
+
+* **Rota:** `POST /sectors/{sector_id}/members`
+* **Permissão:** `super_admin`, `admin`
+* **Body:**
+  ```json
+  {
+    "usuario_id": "3fa85f64-...",
+    "papel": "membro"
+  }
+  ```
+  *(Valores aceitos para papel: `"lider"`, `"membro"`)*
+* **Respostas:**
+  * **201 Created**: Usuário adicionado ao setor.
+  * **400 Bad Request**: Papel inválido.
+  * **409 Conflict**: Usuário já pertence ao setor.
+
+### 11.7. Remover membro do setor
+
+* **Rota:** `DELETE /sectors/{sector_id}/members/{user_id}`
+* **Permissão:** `super_admin`, `admin`
+* **Respostas:**
+  * **200 OK**: Usuário removido do setor.
+  * **404 Not Found**: Associação não existe.
+
+### 11.8. Alterar papel de um membro (Líder ↔ Membro)
+
+* **Rota:** `PATCH /sectors/{sector_id}/members/{user_id}/role`
+* **Permissão:** `super_admin`, `admin`
+* **Body:**
+  ```json
+  {
+    "papel": "lider"
+  }
+  ```
+* **Respostas:**
+  * **200 OK**: Papel atualizado com sucesso.
+  * **400 Bad Request**: Papel inválido ou o usuário já possui este papel no setor.
