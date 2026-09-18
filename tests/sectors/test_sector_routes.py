@@ -16,7 +16,6 @@ from conftest import (
     STATUS_ATIVO_ID,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────
 
 
