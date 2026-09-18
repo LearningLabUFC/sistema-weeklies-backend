@@ -7,20 +7,14 @@ import uuid
 import pytest
 
 from app.models.user import User
-from app.seeds.seed_roles import ROLES
-from app.seeds.seed_status import STATUSES
-
-# ── Constantes (Seeds) ───────────────────────────────────────
-
-# Importamos os IDs diretamente dos seeds reais para não quebrar se eles mudarem
-STATUS_ATIVO = next(s["id"] for s in STATUSES if s["nome"] == "ativo")
-ROLE_SUPER_ADMIN = next(r["id"] for r in ROLES if r["nome"] == "super_admin")
-ROLE_ADMIN = next(r["id"] for r in ROLES if r["nome"] == "admin")
-ROLE_ALUNO = next(r["id"] for r in ROLES if r["nome"] == "aluno")
-
-# Estes foram criados no conftest.py especificamente para os testes
-CURSO_TESTE = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
-SETOR_TESTE = uuid.UUID("4fa85f64-5717-4562-b3fc-2c963f66afa1")
+from conftest import (
+    CURSO_TESTE_ID,
+    ROLE_ADMIN_ID,
+    ROLE_ALUNO_ID,
+    ROLE_SUPER_ADMIN_ID,
+    SETOR_TESTE_ID,
+    STATUS_ATIVO_ID,
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -35,11 +29,11 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
         "matricula": matricula,
         "data_nascimento": "2000-01-01",
         "meta_horas_semanais": 12,
-        "curso_id": str(CURSO_TESTE),
+        "curso_id": str(CURSO_TESTE_ID),
     }
     client.post("/auth/register", json=payload)
     user = db_session.query(User).filter(User.email == email).first()
-    user.status_id = STATUS_ATIVO
+    user.status_id = STATUS_ATIVO_ID
     user.global_role = role_id
     db_session.commit()
     res_login = client.post(
@@ -55,7 +49,7 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
 def admin_logado(client, db_session):
     """Cria e loga um usuário com role 'admin'."""
     return _registrar_e_logar(
-        client, db_session, "secadmin@teste.com", "200001", ROLE_ADMIN
+        client, db_session, "secadmin@teste.com", "200001", ROLE_ADMIN_ID
     )
 
 
@@ -63,7 +57,7 @@ def admin_logado(client, db_session):
 def super_admin_logado(client, db_session):
     """Cria e loga um usuário com role 'super_admin'."""
     return _registrar_e_logar(
-        client, db_session, "secsuper@teste.com", "200002", ROLE_SUPER_ADMIN
+        client, db_session, "secsuper@teste.com", "200002", ROLE_SUPER_ADMIN_ID
     )
 
 
@@ -71,7 +65,7 @@ def super_admin_logado(client, db_session):
 def aluno_logado(client, db_session):
     """Cria e loga um usuário com role 'aluno'."""
     return _registrar_e_logar(
-        client, db_session, "secaluno@teste.com", "200003", ROLE_ALUNO
+        client, db_session, "secaluno@teste.com", "200003", ROLE_ALUNO_ID
     )
 
 
@@ -79,7 +73,7 @@ def aluno_logado(client, db_session):
 def membro_extra(client, db_session):
     """Cria um segundo membro para associação com setor."""
     return _registrar_e_logar(
-        client, db_session, "secmembro@teste.com", "200004", ROLE_ALUNO
+        client, db_session, "secmembro@teste.com", "200004", ROLE_ALUNO_ID
     )
 
 
@@ -98,6 +92,7 @@ def test_create_sector_admin(client, admin_logado):
     )
 
     assert res.status_code == 201
+    # Mensagem dinâmica: f"Setor '{nome}' criado com sucesso."
     assert "com sucesso" in res.json()["mensagem"]
 
 
@@ -183,7 +178,7 @@ def test_get_sector_detail(client, admin_logado):
     _user, token = admin_logado
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.get(f"/sectors/{SETOR_TESTE}", headers=headers)
+    res = client.get(f"/sectors/{SETOR_TESTE_ID}", headers=headers)
 
     assert res.status_code == 200
     data = res.json()
@@ -196,7 +191,7 @@ def test_get_sector_detail_aluno(client, aluno_logado):
     _user, token = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.get(f"/sectors/{SETOR_TESTE}", headers=headers)
+    res = client.get(f"/sectors/{SETOR_TESTE_ID}", headers=headers)
 
     assert res.status_code == 403
 
@@ -221,13 +216,13 @@ def test_update_sector(client, admin_logado):
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.patch(
-        f"/sectors/{SETOR_TESTE}",
+        f"/sectors/{SETOR_TESTE_ID}",
         json={"descricao": "Nova descrição do setor."},
         headers=headers,
     )
 
     assert res.status_code == 200
-    assert "com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Setor atualizado com sucesso."
 
 
 # ── Testes de DELETE /sectors/{sector_id} ────────────────────
@@ -254,7 +249,7 @@ def test_delete_sector_super_admin(client, super_admin_logado):
     res = client.delete(f"/sectors/{setor['id']}", headers=headers)
 
     assert res.status_code == 200
-    assert "desativado" in res.json()["mensagem"].lower()
+    assert res.json()["mensagem"] == "Setor desativado com sucesso."
 
 
 def test_delete_sector_admin_bloqueado(client, admin_logado):
@@ -262,7 +257,7 @@ def test_delete_sector_admin_bloqueado(client, admin_logado):
     _admin, token = admin_logado
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.delete(f"/sectors/{SETOR_TESTE}", headers=headers)
+    res = client.delete(f"/sectors/{SETOR_TESTE_ID}", headers=headers)
 
     assert res.status_code == 403
 
@@ -277,12 +272,13 @@ def test_add_member_to_sector(client, admin_logado, aluno_logado):
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     assert res.status_code == 201
+    # Mensagem dinâmica: f"Usuário adicionado ao setor como '{papel}' com sucesso."
     assert "com sucesso" in res.json()["mensagem"]
 
 
@@ -294,14 +290,14 @@ def test_add_member_duplicado(client, admin_logado, aluno_logado):
 
     # Adiciona pela primeira vez
     client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     # Tenta adicionar novamente
     res = client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
@@ -316,7 +312,7 @@ def test_add_member_papel_invalido(client, admin_logado, aluno_logado):
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "invalido"},
         headers=headers,
     )
@@ -331,12 +327,13 @@ def test_add_leader_to_sector(client, admin_logado, membro_extra):
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(membro.id), "papel": "lider"},
         headers=headers,
     )
 
     assert res.status_code == 201
+    # Mensagem dinâmica: f"Usuário adicionado ao setor como '{papel}' com sucesso."
     assert "lider" in res.json()["mensagem"]
 
 
@@ -351,19 +348,19 @@ def test_remove_member_from_sector(client, admin_logado, aluno_logado):
 
     # Adicionar membro primeiro
     client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     # Remover
     res = client.delete(
-        f"/sectors/{SETOR_TESTE}/members/{aluno.id}",
+        f"/sectors/{SETOR_TESTE_ID}/members/{aluno.id}",
         headers=headers,
     )
 
     assert res.status_code == 200
-    assert "removido" in res.json()["mensagem"].lower()
+    assert res.json()["mensagem"] == "Usuário removido do setor com sucesso."
 
 
 def test_remove_member_not_found(client, admin_logado):
@@ -373,7 +370,7 @@ def test_remove_member_not_found(client, admin_logado):
 
     fake_user_id = uuid.uuid4()
     res = client.delete(
-        f"/sectors/{SETOR_TESTE}/members/{fake_user_id}",
+        f"/sectors/{SETOR_TESTE_ID}/members/{fake_user_id}",
         headers=headers,
     )
 
@@ -391,19 +388,20 @@ def test_change_member_role(client, admin_logado, aluno_logado):
 
     # Adicionar como membro
     client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     # Promover a líder
     res = client.patch(
-        f"/sectors/{SETOR_TESTE}/members/{aluno.id}/role",
+        f"/sectors/{SETOR_TESTE_ID}/members/{aluno.id}/role",
         json={"papel": "lider"},
         headers=headers,
     )
 
     assert res.status_code == 200
+    # Mensagem dinâmica: f"Papel do usuário alterado para '{papel}' com sucesso."
     assert "lider" in res.json()["mensagem"]
 
 
@@ -415,14 +413,14 @@ def test_change_role_same_papel(client, admin_logado, aluno_logado):
 
     # Adicionar como membro
     client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     # Tentar manter como membro
     res = client.patch(
-        f"/sectors/{SETOR_TESTE}/members/{aluno.id}/role",
+        f"/sectors/{SETOR_TESTE_ID}/members/{aluno.id}/role",
         json={"papel": "membro"},
         headers=headers,
     )
@@ -441,13 +439,13 @@ def test_sector_detail_with_members(client, admin_logado, aluno_logado):
 
     # Adicionar membro
     client.post(
-        f"/sectors/{SETOR_TESTE}/members",
+        f"/sectors/{SETOR_TESTE_ID}/members",
         json={"usuario_id": str(aluno.id), "papel": "membro"},
         headers=headers,
     )
 
     # Ver detalhe
-    res = client.get(f"/sectors/{SETOR_TESTE}", headers=headers)
+    res = client.get(f"/sectors/{SETOR_TESTE_ID}", headers=headers)
 
     assert res.status_code == 200
     data = res.json()

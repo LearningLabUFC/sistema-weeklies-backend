@@ -2,16 +2,12 @@
 Testes de Integração — Rotas de Autenticação
 """
 
-import uuid
-
 import pytest
 
 from app.models.user import User
+from conftest import CURSO_TESTE_ID, STATUS_ATIVO_ID
 
 # ── Constantes e Payloads Base ───────────────────────────────
-
-STATUS_ATIVO = uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa2")
-CURSO_TESTE = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
 
 VALID_REGISTER_PAYLOAD = {
     "nome_completo": "Usuário de Integração",
@@ -20,7 +16,7 @@ VALID_REGISTER_PAYLOAD = {
     "matricula": "543578",
     "data_nascimento": "2000-01-01",
     "meta_horas_semanais": 12,
-    "curso_id": str(CURSO_TESTE),
+    "curso_id": str(CURSO_TESTE_ID),
 }
 
 VALID_LOGIN_PAYLOAD = {"email": "integracao@teste.com", "senha": "SenhaForte123!"}
@@ -34,7 +30,7 @@ def usuario_ativo_logado(client, db_session):
     """Registra, ativa e loga um usuário. Retorna (user, tokens_dict)."""
     client.post("/auth/register", json=VALID_REGISTER_PAYLOAD)
     user = db_session.query(User).filter(User.email == "integracao@teste.com").first()
-    user.status_id = STATUS_ATIVO
+    user.status_id = STATUS_ATIVO_ID
     db_session.commit()
     res = client.post("/auth/login", json=VALID_LOGIN_PAYLOAD)
     tokens = res.json()
@@ -69,7 +65,7 @@ def test_register_email_duplicado(client):
     response = client.post("/auth/register", json=payload_dup)
 
     assert response.status_code == 409
-    assert "já está cadastrado" in response.json()["detail"]
+    assert response.json()["detail"] == "Este e-mail já está cadastrado no sistema."
 
 
 def test_register_matricula_duplicada(client):
@@ -80,7 +76,7 @@ def test_register_matricula_duplicada(client):
     response = client.post("/auth/register", json=payload_dup)
 
     assert response.status_code == 409
-    assert "já pertence a outro usuário" in response.json()["detail"]
+    assert response.json()["detail"] == "Esta matrícula já pertence a outro usuário."
 
 
 def test_register_senha_fraca(client):
@@ -119,7 +115,7 @@ def test_login_email_inexistente(client):
     response = client.post("/auth/login", json=payload)
 
     assert response.status_code == 401
-    assert "incorretos" in response.json()["detail"]
+    assert response.json()["detail"] == "E-mail ou senha incorretos, ou conta inativa."
 
 
 def test_login_senha_errada(client, usuario_ativo_logado):
@@ -128,7 +124,7 @@ def test_login_senha_errada(client, usuario_ativo_logado):
     response = client.post("/auth/login", json=payload)
 
     assert response.status_code == 401
-    assert "incorretos" in response.json()["detail"]
+    assert response.json()["detail"] == "E-mail ou senha incorretos. Tente novamente."
 
 
 # ── Testes de Forgot Password (/auth/forgot-password) ─────────────────
@@ -142,7 +138,7 @@ def test_forgot_password_sucesso(client, db_session):
         "/auth/forgot-password", json={"email": "integracao@teste.com"}
     )
     assert response.status_code == 200
-    assert "código de 6 dígitos foi enviado" in response.json()["mensagem"]
+    assert response.json()["mensagem"] == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
 
 
 def test_forgot_password_enumeracao(client):
@@ -152,7 +148,7 @@ def test_forgot_password_enumeracao(client):
     )
     # Deve retornar 200 na mesma para evitar enumeração
     assert response.status_code == 200
-    assert "código de 6 dígitos foi enviado" in response.json()["mensagem"]
+    assert response.json()["mensagem"] == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
 
 
 def test_forgot_password_rate_limit_email(client):
@@ -169,7 +165,7 @@ def test_forgot_password_rate_limit_email(client):
     # Próxima requisição deve falhar
     res = client.post("/auth/forgot-password", json={"email": email})
     assert res.status_code == 429
-    assert "Limite de solicitações atingido" in res.json()["detail"]
+    assert res.json()["detail"] == "Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos."
 
 
 def test_forgot_password_rate_limit_ip(client):
@@ -184,7 +180,7 @@ def test_forgot_password_rate_limit_ip(client):
 
     res = client.post("/auth/forgot-password", json={"email": "estourou@teste.com"})
     assert res.status_code == 429
-    assert "Muitas solicitações deste endereço" in res.json()["detail"]
+    assert res.json()["detail"] == "Muitas solicitações deste endereço. Tente novamente mais tarde."
 
 
 # ── Testes de Verify Code (/auth/verify-code) ─────────────────
@@ -217,7 +213,7 @@ def test_verify_code_invalido(client, monkeypatch):
         "/auth/verify-code", json={"email": "integracao@teste.com", "codigo": "654321"}
     )
     assert res.status_code == 401
-    assert "inválido ou já expirou" in res.json()["detail"]
+    assert res.json()["detail"] == "O código inserido é inválido ou já expirou."
 
 
 def test_verify_code_bruteforce(client, monkeypatch):
@@ -240,6 +236,7 @@ def test_verify_code_bruteforce(client, monkeypatch):
         "/auth/verify-code", json={"email": "integracao@teste.com", "codigo": "errado"}
     )
     assert res.status_code == 429
+    # Mensagem dinâmica (contém settings.VERIFY_CODE_COOLDOWN_MINUTES), usar `in`
     assert "Limite de tentativas atingido" in res.json()["detail"]
 
     # A 6ª tentativa, mesmo com código CERTO, deve dar 429 porque a conta está em cooldown
@@ -247,6 +244,7 @@ def test_verify_code_bruteforce(client, monkeypatch):
         "/auth/verify-code", json={"email": "integracao@teste.com", "codigo": "123456"}
     )
     assert res.status_code == 429
+    # Mensagem dinâmica (contém settings.VERIFY_CODE_COOLDOWN_MINUTES), usar `in`
     assert "Muitas tentativas incorretas" in res.json()["detail"]
 
 
@@ -272,7 +270,7 @@ def test_reset_password_sucesso(client, monkeypatch):
         },
     )
     assert res.status_code == 200
-    assert "redefinida com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Sua senha foi redefinida com sucesso. Você já pode realizar o login."
 
 
 def test_reset_password_senha_igual(client, monkeypatch):
@@ -294,7 +292,7 @@ def test_reset_password_senha_igual(client, monkeypatch):
         },
     )
     assert res.status_code == 400
-    assert "diferente da senha anterior" in res.json()["detail"]
+    assert res.json()["detail"] == "A nova senha deve ser diferente da senha anterior."
 
 
 def test_reset_password_token_invalido(client):
@@ -306,7 +304,7 @@ def test_reset_password_token_invalido(client):
         },
     )
     assert res.status_code == 401
-    assert "expirada" in res.json()["detail"]
+    assert res.json()["detail"] == "Sessão de redefinição expirada. Solicite um novo código."
 
 
 # ── Testes de Refresh e Logout ────────────────────────────────
@@ -335,7 +333,7 @@ def test_refresh_token_rotacao(client, usuario_ativo_logado):
     # Usa a segunda vez - DEVE FALHAR (Blacklist)
     res2 = client.post("/auth/refresh", json={"token_atualizacao": token_atualizacao})
     assert res2.status_code == 401
-    assert "já foi utilizado" in res2.json()["detail"]
+    assert res2.json()["detail"] == "Refresh token já foi utilizado."
 
 
 def test_logout_sucesso(client, usuario_ativo_logado):
@@ -349,7 +347,7 @@ def test_logout_sucesso(client, usuario_ativo_logado):
         "/auth/logout", headers=headers, json={"token_atualizacao": token_atualizacao}
     )
     assert res.status_code == 200
-    assert "encerrada com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Sessão encerrada com sucesso."
 
     # 2. Tenta usar o access token novamente (deve falhar - blacklist)
     res_change_pwd = client.put(
@@ -385,7 +383,7 @@ def test_change_password_sucesso(client, usuario_ativo_logado):
     )
 
     assert res.status_code == 200
-    assert "alterada com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Senha alterada com sucesso."
 
 
 def test_change_password_incorreta(client, usuario_ativo_logado):
@@ -399,7 +397,7 @@ def test_change_password_incorreta(client, usuario_ativo_logado):
     )
 
     assert res.status_code == 401
-    assert "incorreta" in res.json()["detail"]
+    assert res.json()["detail"] == "A senha atual informada está incorreta."
 
 
 def test_delete_account_sucesso(client, usuario_ativo_logado, db_session):
@@ -411,7 +409,7 @@ def test_delete_account_sucesso(client, usuario_ativo_logado, db_session):
     )
 
     assert res.status_code == 200
-    assert "desativada" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Sua conta foi desativada com sucesso."
 
     # Verifica no banco se foi deletado logicamente
     db_session.refresh(user)
