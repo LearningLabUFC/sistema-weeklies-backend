@@ -15,7 +15,7 @@ Para manter o histórico e a integridade referencial do banco de dados, o sistem
 
 ### Regras de Negócio
 - A rota `POST /auth/login` bloqueia autenticações de contas com status **inativo**.
-- A rota `DELETE /auth/account` permite que o próprio usuário autenticado (mediante confirmação de senha) realize o *soft delete* da sua conta.
+- Apenas usuários com a role `admin` ou `super_admin` podem inativar (realizar o *soft delete*) de contas no sistema através da rota administrativa.
 
 ---
 

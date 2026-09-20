@@ -20,7 +20,6 @@ from app.auth.repository import (
 from app.auth.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
-    DeleteAccountRequest,
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
@@ -318,15 +317,4 @@ async def svc_change_password(
     return MensagemResponse(mensagem="Senha alterada com sucesso.")
 
 
-async def svc_delete_account(
-    body: DeleteAccountRequest, current_user: User, db: Session
-) -> MensagemResponse:
-    if not verificar_senha(body.senha, current_user.senha_hash):
-        raise UnauthorizedError(
-            "A senha informada está incorreta. A conta não foi excluída.",
-        )
 
-    current_user.status_id = UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3")  # Inativo
-    update_user(db, current_user)
-
-    return MensagemResponse(mensagem="Sua conta foi desativada com sucesso.")

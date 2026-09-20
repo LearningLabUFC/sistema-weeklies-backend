@@ -258,11 +258,4 @@ class ChangePasswordRequest(BaseModel):
         return v
 
 
-class DeleteAccountRequest(BaseModel):
-    """Body para DELETE /auth/account."""
 
-    senha: str = Field(
-        ...,
-        description="Senha atual para confirmar a exclusão da conta.",
-        examples=["SenhaForte123!"],
-    )
