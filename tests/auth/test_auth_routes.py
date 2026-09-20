@@ -402,17 +402,3 @@ def test_change_password_incorreta(client, usuario_ativo_logado):
     assert "incorreta" in res.json()["detail"]
 
 
-def test_delete_account_sucesso(client, usuario_ativo_logado, db_session):
-    user, tokens = usuario_ativo_logado
-
-    headers = {"Authorization": f"Bearer {tokens['token_acesso']}"}
-    res = client.request(
-        "DELETE", "/auth/account", json={"senha": "SenhaForte123!"}, headers=headers
-    )
-
-    assert res.status_code == 200
-    assert "desativada" in res.json()["mensagem"]
-
-    # Verifica no banco se foi deletado logicamente
-    db_session.refresh(user)
-    assert user.status.nome == "inativo"

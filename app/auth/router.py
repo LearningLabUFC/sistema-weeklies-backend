@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import (
     AuthTokenResponse,
     ChangePasswordRequest,
-    DeleteAccountRequest,
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
@@ -22,7 +21,6 @@ from app.auth.schemas import (
 )
 from app.auth.service import (
     svc_change_password,
-    svc_delete_account,
     svc_forgot_password,
     svc_login_user,
     svc_logout_user,
@@ -421,44 +419,4 @@ async def change_password(
     return await svc_change_password(body, current_user, db)
 
 
-@router.delete(
-    "/account",
-    response_model=MensagemResponse,
-    status_code=200,
-    summary="Excluir conta do usuário",
-    description=(
-        "Remove permanentemente a conta do usuário autenticado. "
-        "Exige a senha atual como confirmação para evitar exclusões "
-        "acidentais. Esta ação é irreversível."
-    ),
-    responses={
-        401: {
-            "description": "Senha de confirmação incorreta ou token inválido.",
-            "content": {
-                "application/json": {
-                    "schema": ErroPadrao.model_json_schema(),
-                    "examples": {
-                        "senhaIncorreta": {
-                            "summary": "Senha incorreta",
-                            "value": {
-                                "mensagem": "A senha informada está incorreta. A conta não foi excluída."
-                            },
-                        },
-                        "naoAutenticado": {
-                            "summary": "Não autenticado",
-                            "value": {
-                                "mensagem": "Token de acesso ausente ou inválido."
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    },
-)
-async def delete_account(
-    body: DeleteAccountRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> MensagemResponse:
-    return await svc_delete_account(body, current_user, db)
+
