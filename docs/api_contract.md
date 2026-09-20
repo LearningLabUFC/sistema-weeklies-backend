@@ -399,30 +399,6 @@ Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
 
 ---
 
-### 6.9. `DELETE /auth/account`
-
-> Realiza o *soft delete* (desativação lógica) da conta do próprio usuário autenticado.
-
-**Autenticação:** 🔒 Requer `Authorization: Bearer <token_acesso>`
-
-**Request Body:**
-```json
-{
-  "senha": "SenhaForte123!"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "mensagem": "Sua conta foi desativada com sucesso."
-}
-```
-
-**Erros possíveis:**
-- `401`: Senha incorreta ou token inválido.
-
----
 
 ## 7. Endpoints — Perfil do Usuário (`/users`)
 
@@ -760,9 +736,6 @@ export interface RefreshTokenResponse {
   token_atualizacao: string;
 }
 
-export interface DeleteAccountRequest {
-  senha: string;
-}
 
 // ── Users — Requests & Responses ────────────────────────────
 
