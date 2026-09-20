@@ -2,24 +2,16 @@
 Testes de Integração — Rotas de Administração (/admin)
 """
 
-import uuid
-
 import pytest
 
 from app.models.user import User
-
-# ── Constantes (Seeds) ───────────────────────────────────────
-
-STATUS_PENDENTE = uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa1")
-STATUS_ATIVO = uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa2")
-STATUS_INATIVO = uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa3")
-
-ROLE_SUPER_ADMIN = uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa1")
-ROLE_ADMIN = uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa2")
-ROLE_ALUNO = uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3")
-
-CURSO_TESTE = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
-
+from conftest import (
+    CURSO_TESTE_ID,
+    ROLE_ADMIN_ID,
+    ROLE_ALUNO_ID,
+    ROLE_SUPER_ADMIN_ID,
+    STATUS_ATIVO_ID,
+)
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -33,11 +25,11 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
         "matricula": matricula,
         "data_nascimento": "2000-01-01",
         "meta_horas_semanais": 12,
-        "curso_id": str(CURSO_TESTE),
+        "curso_id": str(CURSO_TESTE_ID),
     }
     client.post("/auth/register", json=payload)
     user = db_session.query(User).filter(User.email == email).first()
-    user.status_id = STATUS_ATIVO
+    user.status_id = STATUS_ATIVO_ID
     user.global_role = role_id
     db_session.commit()
     res_login = client.post(
@@ -53,7 +45,7 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
 def admin_logado(client, db_session):
     """Cria e loga um usuário com role 'admin'."""
     return _registrar_e_logar(
-        client, db_session, "admin@teste.com", "100001", ROLE_ADMIN
+        client, db_session, "admin@teste.com", "100001", ROLE_ADMIN_ID
     )
 
 
@@ -61,7 +53,7 @@ def admin_logado(client, db_session):
 def super_admin_logado(client, db_session):
     """Cria e loga um usuário com role 'super_admin'."""
     return _registrar_e_logar(
-        client, db_session, "super@teste.com", "100002", ROLE_SUPER_ADMIN
+        client, db_session, "super@teste.com", "100002", ROLE_SUPER_ADMIN_ID
     )
 
 
@@ -69,7 +61,7 @@ def super_admin_logado(client, db_session):
 def aluno_logado(client, db_session):
     """Cria e loga um usuário com role 'aluno'."""
     return _registrar_e_logar(
-        client, db_session, "aluno@teste.com", "100003", ROLE_ALUNO
+        client, db_session, "aluno@teste.com", "100003", ROLE_ALUNO_ID
     )
 
 
@@ -83,7 +75,7 @@ def aluno_pendente(client, db_session):
         "matricula": "100004",
         "data_nascimento": "2000-01-01",
         "meta_horas_semanais": 12,
-        "curso_id": str(CURSO_TESTE),
+        "curso_id": str(CURSO_TESTE_ID),
     }
     client.post("/auth/register", json=payload)
     return db_session.query(User).filter(User.email == "pendente@teste.com").first()
@@ -115,10 +107,7 @@ def test_list_users_aluno_bloqueado(client, aluno_logado):
     res = client.get("/admin/users", headers=headers)
 
     assert res.status_code == 403
-    assert (
-        "permissão" in res.json()["detail"].lower()
-        or "Acesso negado" in res.json()["detail"]
-    )
+    assert res.json()["detail"] == "Acesso negado. Nível de permissão insuficiente."
 
 
 # ── Testes de GET /admin/users/pending ───────────────────────
@@ -161,7 +150,7 @@ def test_change_status_aprovar_admin(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 200
-    assert "com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Status do usuário alterado para ativo com sucesso."
 
 
 def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
@@ -176,7 +165,7 @@ def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 200
-    assert "com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Status do usuário alterado para inativo com sucesso."
 
 
 def test_change_status_aluno_bloqueado(client, aluno_logado, aluno_pendente):
@@ -208,7 +197,7 @@ def test_change_status_admin_nao_altera_superadmin(
     )
 
     assert res.status_code == 403
-    assert "apenas outro super_admin pode" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Apenas outro super_admin pode alterar um super_admin."
 
 
 def test_change_status_invalido(client, admin_logado, aluno_pendente):
@@ -223,7 +212,7 @@ def test_change_status_invalido(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 400
-    assert "inválido" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Status inválido. Escolha 'ativo' ou 'inativo'."
 
 
 # ── Testes de PATCH /admin/users/{user_id}/role ──────────────
@@ -242,7 +231,7 @@ def test_change_role_promover_aluno(client, admin_logado, aluno_logado):
     )
 
     assert res.status_code == 200
-    assert "com sucesso" in res.json()["mensagem"]
+    assert res.json()["mensagem"] == "Cargo do usuário alterado para 'admin' com sucesso."
 
 
 def test_change_role_auto_rebaixamento(client, admin_logado):
@@ -257,7 +246,7 @@ def test_change_role_auto_rebaixamento(client, admin_logado):
     )
 
     assert res.status_code == 403
-    assert "próprio cargo" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Você não pode alterar o seu próprio cargo. Peça a outro administrador."
 
 
 def test_change_role_admin_nao_rebaixa_superadmin(
@@ -275,7 +264,7 @@ def test_change_role_admin_nao_rebaixa_superadmin(
     )
 
     assert res.status_code == 403
-    assert "apenas um super_admin" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Apenas um super_admin pode alterar o cargo de outro super_admin."
 
 
 def test_change_role_usuario_pendente(client, admin_logado, aluno_pendente):
@@ -290,7 +279,7 @@ def test_change_role_usuario_pendente(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 400
-    assert "status ativo" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Só é possível alterar o cargo de usuários com status ativo."
 
 
 def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
@@ -307,7 +296,7 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
     from unittest.mock import patch
 
     alvo, _ = _registrar_e_logar(
-        client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN
+        client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN_ID
     )
 
     with patch("sqlalchemy.orm.query.Query.scalar", return_value=1):
@@ -318,7 +307,7 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
         )
 
     assert res.status_code == 409
-    assert "pelo menos um administrador ativo" in res.json()["detail"].lower()
+    assert res.json()["detail"] == "Operação negada. O sistema deve ter pelo menos um administrador ativo."
 
 
 # ── Testes de DELETE /admin/users/{user_id} ──────────────────
@@ -333,7 +322,7 @@ def test_delete_user_super_admin(client, super_admin_logado, aluno_logado):
     res = client.delete(f"/admin/users/{aluno.id}", headers=headers)
 
     assert res.status_code == 200
-    assert "excluído" in res.json()["mensagem"].lower()
+    assert res.json()["mensagem"] == "Usuário excluído (inativado) com sucesso."
 
 
 def test_delete_user_admin_bloqueado(client, admin_logado, aluno_logado):
@@ -345,7 +334,4 @@ def test_delete_user_admin_bloqueado(client, admin_logado, aluno_logado):
     res = client.delete(f"/admin/users/{aluno.id}", headers=headers)
 
     assert res.status_code == 403
-    assert (
-        "permissão" in res.json()["detail"].lower()
-        or "acesso negado" in res.json()["detail"].lower()
-    )
+    assert res.json()["detail"] == "Acesso negado. Nível de permissão insuficiente."

@@ -10,7 +10,25 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.models.course import Course
+from app.seeds.seed_roles import ROLES
+from app.seeds.seed_status import STATUSES
 from tests.setup_test_db import init_test_db
+
+# ── Constantes centralizadas derivadas dos Seeds reais ───────
+# Todos os arquivos de teste devem importar daqui em vez de
+# redefinir UUIDs manualmente.
+
+STATUS_PENDENTE_ID = next(s["id"] for s in STATUSES if s["nome"] == "pendente")
+STATUS_ATIVO_ID = next(s["id"] for s in STATUSES if s["nome"] == "ativo")
+STATUS_INATIVO_ID = next(s["id"] for s in STATUSES if s["nome"] == "inativo")
+
+ROLE_SUPER_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "super_admin")
+ROLE_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "admin")
+ROLE_ALUNO_ID = next(r["id"] for r in ROLES if r["nome"] == "aluno")
+
+# IDs de entidades criadas exclusivamente para testes (no fixture tables)
+CURSO_TESTE_ID = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
+SETOR_TESTE_ID = uuid.UUID("4fa85f64-5717-4562-b3fc-2c963f66afa1")
 
 # 1. Certificar que o DB de testes existe
 init_test_db()
@@ -29,8 +47,9 @@ def tables():
     """Cria tabelas antes de tudo e apaga no final, também insere os seeds."""
     Base.metadata.create_all(bind=test_engine)
 
-    from app.seeds.seed_roles import ROLES, Role
-    from app.seeds.seed_status import STATUSES, Status
+    from app.models.role import Role
+    from app.models.sector import Sector
+    from app.models.status import Status
 
     db = TestingSessionLocal()
     try:
@@ -45,16 +64,12 @@ def tables():
                 db.add(Status(id=s_data["id"], nome=s_data["nome"]))
 
         # Seed de Curso padrão para testes
-        curso_id = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
-        if not db.query(Course).filter(Course.id == curso_id).first():
-            db.add(Course(id=curso_id, nome="Engenharia de Software Teste", ativo=True))
+        if not db.query(Course).filter(Course.id == CURSO_TESTE_ID).first():
+            db.add(Course(id=CURSO_TESTE_ID, nome="Engenharia de Software Teste", ativo=True))
 
         # Seed de Setor padrão para testes
-        from app.models.sector import Sector
-
-        setor_id = uuid.UUID("4fa85f64-5717-4562-b3fc-2c963f66afa1")
-        if not db.query(Sector).filter(Sector.id == setor_id).first():
-            db.add(Sector(id=setor_id, nome="Desenvolvimento Teste"))
+        if not db.query(Sector).filter(Sector.id == SETOR_TESTE_ID).first():
+            db.add(Sector(id=SETOR_TESTE_ID, nome="Desenvolvimento Teste"))
 
         db.commit()
     finally:

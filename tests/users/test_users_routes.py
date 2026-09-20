@@ -2,16 +2,12 @@
 Testes de Integração — Rotas de Perfil do Usuário (/users)
 """
 
-import uuid
-
 import pytest
 
 from app.models.user import User
+from conftest import CURSO_TESTE_ID, STATUS_ATIVO_ID
 
 # ── Constantes ───────────────────────────────────────────────
-
-STATUS_ATIVO = uuid.UUID("1fa85f64-5717-4562-b3fc-2c963f66afa2")
-CURSO_TESTE = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
 
 VALID_REGISTER_PAYLOAD = {
     "nome_completo": "Usuário de Integração",
@@ -20,7 +16,7 @@ VALID_REGISTER_PAYLOAD = {
     "matricula": "543578",
     "data_nascimento": "2000-01-01",
     "meta_horas_semanais": 12,
-    "curso_id": str(CURSO_TESTE),
+    "curso_id": str(CURSO_TESTE_ID),
 }
 
 VALID_LOGIN_PAYLOAD = {
@@ -37,7 +33,7 @@ def usuario_ativo_logado(client, db_session):
     """Registra, ativa e loga um usuário. Retorna (user, tokens_dict)."""
     client.post("/auth/register", json=VALID_REGISTER_PAYLOAD)
     user = db_session.query(User).filter(User.email == "integracao@teste.com").first()
-    user.status_id = STATUS_ATIVO
+    user.status_id = STATUS_ATIVO_ID
     db_session.commit()
     res = client.post("/auth/login", json=VALID_LOGIN_PAYLOAD)
     tokens = res.json()
@@ -60,8 +56,8 @@ def test_get_me_sucesso(client, usuario_ativo_logado):
     assert data["usuario"]["email"] == "integracao@teste.com"
     assert data["usuario"]["nome_completo"] == "Usuário de Integração"
     assert data["usuario"]["matricula"] == "543578"
-    assert data["usuario"]["curso_id"] == str(CURSO_TESTE)
-    assert data["usuario"]["status_id"] == str(STATUS_ATIVO)
+    assert data["usuario"]["curso_id"] == str(CURSO_TESTE_ID)
+    assert data["usuario"]["status_id"] == str(STATUS_ATIVO_ID)
 
 
 def test_get_me_sem_token(client):
@@ -125,7 +121,7 @@ def test_update_me_email_duplicado(client, db_session, usuario_ativo_logado):
     res = client.put("/users/me", json={"email": "segundo@teste.com"}, headers=headers)
 
     assert res.status_code == 409
-    assert "já está em uso" in res.json()["detail"]
+    assert res.json()["detail"] == "Este e-mail já está em uso por outro usuário."
 
 
 def test_update_me_foto_perfil(client, usuario_ativo_logado):
