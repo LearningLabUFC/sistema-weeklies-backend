@@ -53,7 +53,7 @@ class UsuarioCompleto(BaseModel):
     )
     curso_id: UUID = Field(
         ...,
-        description="ID referencial (UUID) do curso do aluno.",
+        description="ID referencial (UUID) do curso do usuario.",
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
     )
     status_id: UUID = Field(
@@ -63,7 +63,7 @@ class UsuarioCompleto(BaseModel):
     )
     global_role: UUID = Field(
         ...,
-        description="ID referencial do papel global do usuário (aluno, coordenador, admin).",
+        description="ID referencial do papel global do usuário (usuario, coordenador, admin).",
         examples=["1fa85f64-5717-4562-b3fc-2c963f66afa1"],
     )
 

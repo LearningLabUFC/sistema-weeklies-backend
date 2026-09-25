@@ -59,17 +59,17 @@ def super_admin_logado(client, db_session):
 
 @pytest.fixture
 def aluno_logado(client, db_session):
-    """Cria e loga um usuário com role 'aluno'."""
+    """Cria e loga um usuário com role 'usuario'."""
     return _registrar_e_logar(
-        client, db_session, "aluno@teste.com", "100003", ROLE_ALUNO_ID
+        client, db_session, "usuario@teste.com", "100003", ROLE_ALUNO_ID
     )
 
 
 @pytest.fixture
 def aluno_pendente(client, db_session):
-    """Registra um aluno que fica com status 'pendente' (sem ativar). Retorna o user."""
+    """Registra um usuario que fica com status 'pendente' (sem ativar). Retorna o user."""
     payload = {
-        "nome_completo": "Aluno Pendente",
+        "nome_completo": "Usuario Pendente",
         "email": "pendente@teste.com",
         "senha": "SenhaForte123!",
         "matricula": "100004",
@@ -100,7 +100,7 @@ def test_list_users_admin(client, admin_logado):
 
 
 def test_list_users_aluno_bloqueado(client, aluno_logado):
-    """Alunos NÃO podem acessar a lista de usuários (403)."""
+    """Usuarios NÃO podem acessar a lista de usuários (403)."""
     _user, token = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -126,7 +126,7 @@ def test_list_pending_admin(client, admin_logado, aluno_pendente):
 
 
 def test_list_pending_aluno_bloqueado(client, aluno_logado):
-    """Alunos NÃO podem acessar a lista de pendentes (403)."""
+    """Usuarios NÃO podem acessar a lista de pendentes (403)."""
     _user, token = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -139,7 +139,7 @@ def test_list_pending_aluno_bloqueado(client, aluno_logado):
 
 
 def test_change_status_aprovar_admin(client, admin_logado, aluno_pendente):
-    """Admin deve conseguir aprovar (mudar para 'ativo') um aluno pendente."""
+    """Admin deve conseguir aprovar (mudar para 'ativo') um usuario pendente."""
     _admin, token = admin_logado
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -154,7 +154,7 @@ def test_change_status_aprovar_admin(client, admin_logado, aluno_pendente):
 
 
 def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
-    """Admin deve conseguir rejeitar (mudar para 'inativo') um aluno pendente."""
+    """Admin deve conseguir rejeitar (mudar para 'inativo') um usuario pendente."""
     _admin, token = admin_logado
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -169,7 +169,7 @@ def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
 
 
 def test_change_status_aluno_bloqueado(client, aluno_logado, aluno_pendente):
-    """Alunos não podem alterar status de ninguém (403)."""
+    """Usuarios não podem alterar status de ninguém (403)."""
     _user, token = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -219,13 +219,13 @@ def test_change_status_invalido(client, admin_logado, aluno_pendente):
 
 
 def test_change_role_promover_aluno(client, admin_logado, aluno_logado):
-    """Admin deve conseguir promover um aluno a admin."""
+    """Admin deve conseguir promover um usuario a admin."""
     _admin, token = admin_logado
-    aluno, _token_aluno = aluno_logado
+    usuario, _token_aluno = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.patch(
-        f"/admin/users/{aluno.id}/role",
+        f"/admin/users/{usuario.id}/role",
         json={"role_nome": "admin"},
         headers=headers,
     )
@@ -241,7 +241,7 @@ def test_change_role_auto_rebaixamento(client, admin_logado):
 
     res = client.patch(
         f"/admin/users/{admin.id}/role",
-        json={"role_nome": "aluno"},
+        json={"role_nome": "usuario"},
         headers=headers,
     )
 
@@ -302,7 +302,7 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
     with patch("sqlalchemy.orm.query.Query.scalar", return_value=1):
         res = client.patch(
             f"/admin/users/{alvo.id}/role",
-            json={"role_nome": "aluno"},
+            json={"role_nome": "usuario"},
             headers=headers,
         )
 
@@ -316,10 +316,10 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
 def test_delete_user_super_admin(client, super_admin_logado, aluno_logado):
     """Super Admin deve conseguir excluir (inativar) um usuário."""
     _super, token = super_admin_logado
-    aluno, _ = aluno_logado
+    usuario, _ = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.delete(f"/admin/users/{aluno.id}", headers=headers)
+    res = client.delete(f"/admin/users/{usuario.id}", headers=headers)
 
     assert res.status_code == 200
     assert res.json()["mensagem"] == "Usuário excluído (inativado) com sucesso."
@@ -328,10 +328,10 @@ def test_delete_user_super_admin(client, super_admin_logado, aluno_logado):
 def test_delete_user_admin_bloqueado(client, admin_logado, aluno_logado):
     """Admin normal não pode excluir usuários (403)."""
     _admin, token = admin_logado
-    aluno, _ = aluno_logado
+    usuario, _ = aluno_logado
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.delete(f"/admin/users/{aluno.id}", headers=headers)
+    res = client.delete(f"/admin/users/{usuario.id}", headers=headers)
 
     assert res.status_code == 403
     assert res.json()["detail"] == "Acesso negado. Nível de permissão insuficiente."

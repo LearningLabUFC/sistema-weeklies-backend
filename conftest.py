@@ -24,7 +24,7 @@ STATUS_INATIVO_ID = next(s["id"] for s in STATUSES if s["nome"] == "inativo")
 
 ROLE_SUPER_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "super_admin")
 ROLE_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "admin")
-ROLE_ALUNO_ID = next(r["id"] for r in ROLES if r["nome"] == "aluno")
+ROLE_ALUNO_ID = next(r["id"] for r in ROLES if r["nome"] == "usuario")
 
 # IDs de entidades criadas exclusivamente para testes (no fixture tables)
 CURSO_TESTE_ID = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")

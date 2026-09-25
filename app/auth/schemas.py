@@ -85,7 +85,7 @@ class RegisterRequest(BaseModel):
 
     curso_id: UUID = Field(
         ...,
-        description="UUID do curso acadêmico do aluno.",
+        description="UUID do curso acadêmico do usuario.",
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
     )
     meta_horas_semanais: int = Field(
