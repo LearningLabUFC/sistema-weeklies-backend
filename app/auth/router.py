@@ -417,6 +417,3 @@ async def change_password(
     db: Session = Depends(get_db),
 ) -> MensagemResponse:
     return await svc_change_password(body, current_user, db)
-
-
-

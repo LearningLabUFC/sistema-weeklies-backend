@@ -39,9 +39,7 @@ PAPEIS_VALIDOS = ["lider", "membro"]
 # ── CRUD de Setores ──────────────────────────────────────────
 
 
-def svc_create_sector(
-    body: CreateSectorRequest, db: Session
-) -> MensagemResponse:
+def svc_create_sector(body: CreateSectorRequest, db: Session) -> MensagemResponse:
     existente = find_sector_by_name(db, body.nome)
     if existente:
         raise ConflictError(f"Já existe um setor com o nome '{body.nome}'.")
@@ -57,9 +55,7 @@ def svc_create_sector(
     )
 
 
-def svc_list_sectors(
-    pagina: int, limite: int, db: Session
-) -> SectorListResponse:
+def svc_list_sectors(pagina: int, limite: int, db: Session) -> SectorListResponse:
     setores, total = list_sectors_paginated(db, pagina, limite)
 
     items = []
@@ -182,9 +178,7 @@ def svc_add_member(
     )
 
 
-def svc_remove_member(
-    sector_id: UUID, user_id: UUID, db: Session
-) -> MensagemResponse:
+def svc_remove_member(sector_id: UUID, user_id: UUID, db: Session) -> MensagemResponse:
     setor = find_sector_by_id(db, sector_id)
     if not setor:
         raise NotFoundError("Setor não encontrado.")

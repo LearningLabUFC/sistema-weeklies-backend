@@ -256,6 +256,3 @@ class ChangePasswordRequest(BaseModel):
         if not _SENHA_REGEX.match(v):
             raise ValueError(_SENHA_MSG)
         return v
-
-
-

@@ -65,7 +65,11 @@ def tables():
 
         # Seed de Curso padrão para testes
         if not db.query(Course).filter(Course.id == CURSO_TESTE_ID).first():
-            db.add(Course(id=CURSO_TESTE_ID, nome="Engenharia de Software Teste", ativo=True))
+            db.add(
+                Course(
+                    id=CURSO_TESTE_ID, nome="Engenharia de Software Teste", ativo=True
+                )
+            )
 
         # Seed de Setor padrão para testes
         if not db.query(Sector).filter(Sector.id == SETOR_TESTE_ID).first():

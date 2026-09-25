@@ -150,7 +150,9 @@ def test_change_status_aprovar_admin(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 200
-    assert res.json()["mensagem"] == "Status do usuário alterado para ativo com sucesso."
+    assert (
+        res.json()["mensagem"] == "Status do usuário alterado para ativo com sucesso."
+    )
 
 
 def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
@@ -165,7 +167,9 @@ def test_change_status_rejeitar_admin(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 200
-    assert res.json()["mensagem"] == "Status do usuário alterado para inativo com sucesso."
+    assert (
+        res.json()["mensagem"] == "Status do usuário alterado para inativo com sucesso."
+    )
 
 
 def test_change_status_aluno_bloqueado(client, aluno_logado, aluno_pendente):
@@ -197,7 +201,9 @@ def test_change_status_admin_nao_altera_superadmin(
     )
 
     assert res.status_code == 403
-    assert res.json()["detail"] == "Apenas outro super_admin pode alterar um super_admin."
+    assert (
+        res.json()["detail"] == "Apenas outro super_admin pode alterar um super_admin."
+    )
 
 
 def test_change_status_invalido(client, admin_logado, aluno_pendente):
@@ -231,7 +237,9 @@ def test_change_role_promover_aluno(client, admin_logado, aluno_logado):
     )
 
     assert res.status_code == 200
-    assert res.json()["mensagem"] == "Cargo do usuário alterado para 'admin' com sucesso."
+    assert (
+        res.json()["mensagem"] == "Cargo do usuário alterado para 'admin' com sucesso."
+    )
 
 
 def test_change_role_auto_rebaixamento(client, admin_logado):
@@ -246,7 +254,10 @@ def test_change_role_auto_rebaixamento(client, admin_logado):
     )
 
     assert res.status_code == 403
-    assert res.json()["detail"] == "Você não pode alterar o seu próprio cargo. Peça a outro administrador."
+    assert (
+        res.json()["detail"]
+        == "Você não pode alterar o seu próprio cargo. Peça a outro administrador."
+    )
 
 
 def test_change_role_admin_nao_rebaixa_superadmin(
@@ -264,7 +275,10 @@ def test_change_role_admin_nao_rebaixa_superadmin(
     )
 
     assert res.status_code == 403
-    assert res.json()["detail"] == "Apenas um super_admin pode alterar o cargo de outro super_admin."
+    assert (
+        res.json()["detail"]
+        == "Apenas um super_admin pode alterar o cargo de outro super_admin."
+    )
 
 
 def test_change_role_usuario_pendente(client, admin_logado, aluno_pendente):
@@ -279,7 +293,10 @@ def test_change_role_usuario_pendente(client, admin_logado, aluno_pendente):
     )
 
     assert res.status_code == 400
-    assert res.json()["detail"] == "Só é possível alterar o cargo de usuários com status ativo."
+    assert (
+        res.json()["detail"]
+        == "Só é possível alterar o cargo de usuários com status ativo."
+    )
 
 
 def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
@@ -307,7 +324,10 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
         )
 
     assert res.status_code == 409
-    assert res.json()["detail"] == "Operação negada. O sistema deve ter pelo menos um administrador ativo."
+    assert (
+        res.json()["detail"]
+        == "Operação negada. O sistema deve ter pelo menos um administrador ativo."
+    )
 
 
 # ── Testes de DELETE /admin/users/{user_id} ──────────────────
