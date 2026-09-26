@@ -8,7 +8,7 @@ from app.models.role import Role
 ROLES = [
     {"id": uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa1"), "nome": "super_admin"},
     {"id": uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa2"), "nome": "admin"},
-    {"id": uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"), "nome": "aluno"},
+    {"id": uuid.UUID("2fa85f64-5717-4562-b3fc-2c963f66afa3"), "nome": "usuario"},
 ]
 
 

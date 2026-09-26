@@ -66,7 +66,7 @@ async def create_sector(
 async def list_sectors(
     pagina: int = Query(1, ge=1, description="Número da página (1-indexed)."),
     limite: int = Query(20, ge=1, le=100, description="Itens por página (máx. 100)."),
-    user: User = Depends(require_role(["super_admin", "admin", "aluno"])),
+    user: User = Depends(require_role(["super_admin", "admin", "usuario"])),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_list_sectors(pagina, limite, db)

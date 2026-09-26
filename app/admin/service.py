@@ -101,7 +101,7 @@ def svc_change_user_role(
     novo_role = find_role_by_name(db, body.role_nome)
     if not novo_role:
         raise BadRequestError(
-            f"Cargo '{body.role_nome}' inválido. Valores aceitos: 'super_admin', 'admin', 'aluno'.",
+            f"Cargo '{body.role_nome}' inválido. Valores aceitos: 'super_admin', 'admin', 'usuario'.",
         )
 
     usuario = find_user_by_id(db, user_id)

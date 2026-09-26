@@ -50,7 +50,7 @@ async def list_all_users(
     role_filtro: str | None = Query(
         None,
         alias="role",
-        description="Filtrar por cargo: 'super_admin', 'admin', 'aluno'.",
+        description="Filtrar por cargo: 'super_admin', 'admin', 'usuario'.",
     ),
     busca: str | None = Query(
         None, description="Busca por nome ou e-mail (case-insensitive)."

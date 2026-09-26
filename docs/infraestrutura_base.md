@@ -35,7 +35,7 @@ A base de dados é estruturada através de modelos relacionais SQLAlchemy:
   - `status_id`: Chave estrangeira para `status_usuarios.id` (`relationship("Status")`).
   - `global_role`: Chave estrangeira para `cargos.id` (`relationship("Role")`).
 * **`Status` (`app/models/status.py`)**: Tabela `status_usuarios` com os estados `pendente`, `ativo` e `inativo`.
-* **`Role` (`app/models/role.py`)**: Tabela `cargos` com os papéis `super_admin`, `admin` e `aluno`.
+* **`Role` (`app/models/role.py`)**: Tabela `cargos` com os papéis `super_admin`, `admin` e `usuario`.
 * **`Course` (`app/models/course.py`)**: Tabela `cursos` com nome e status ativo do curso acadêmico.
 * **`Sector` (`app/models/sector.py`)**: Tabela `setores` com nome, descrição e status ativo do setor.
 * **`SectorUser` (`app/models/sector_user.py`)**: Tabela `setor_usuarios` (tabela associativa) que define a relação N:N entre usuários e setores, incluindo o papel (`papel` como líder ou membro).

@@ -46,7 +46,7 @@ router = APIRouter(
     status_code=201,
     summary="Cadastrar novo usuário",
     description=(
-        "Registra um novo aluno ou membro no sistema. Valida os dados de "
+        "Registra um novo usuario ou membro no sistema. Valida os dados de "
         "entrada e garante que o e-mail e a matrícula sejam únicos. Retorna "
         "os dados completos do usuário recém-criado e os tokens de acesso."
     ),
@@ -417,6 +417,3 @@ async def change_password(
     db: Session = Depends(get_db),
 ) -> MensagemResponse:
     return await svc_change_password(body, current_user, db)
-
-
-

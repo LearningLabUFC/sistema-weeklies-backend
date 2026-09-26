@@ -150,7 +150,7 @@ Todos os erros da API retornam um JSON com a seguinte estrutura padronizada:
 
 ### 6.1. `POST /auth/register`
 
-> Registra um novo membro na plataforma. O usuário é criado com status `pendente` e role `aluno`.
+> Registra um novo membro na plataforma. O usuário é criado com status `pendente` e role `usuario`.
 
 **Autenticação:** Não requer
 
@@ -513,7 +513,7 @@ Todos os endpoints deste módulo exigem nível de permissão administrativo (`ad
 | `pagina` | `int` | `1` | Número da página (inicia em 1) |
 | `limite` | `int` | `20` | Itens por página (máx: 100) |
 | `status` | `string` | `null` | Filtrar por status (`ativo`, `pendente`, `inativo`) |
-| `role` | `string` | `null` | Filtrar por cargo (`super_admin`, `admin`, `aluno`) |
+| `role` | `string` | `null` | Filtrar por cargo (`super_admin`, `admin`, `usuario`) |
 | `busca` | `string` | `null` | Busca por nome ou e-mail (case-insensitive) |
 
 **Response (200 OK):**
@@ -529,7 +529,7 @@ Todos os endpoints deste módulo exigem nível de permissão administrativo (`ad
       "foto_perfil": "avatar_padrao.png",
       "curso_nome": "Engenharia de Software",
       "status_nome": "ativo",
-      "role_nome": "aluno"
+      "role_nome": "usuario"
     }
   ],
   "total": 42,
@@ -621,7 +621,7 @@ Todos os endpoints deste módulo exigem nível de permissão administrativo (`ad
 ```
 
 **Erros possíveis:**
-- `400`: Cargo inválido (`super_admin`, `admin`, `aluno`) ou usuário não ativo.
+- `400`: Cargo inválido (`super_admin`, `admin`, `usuario`) ou usuário não ativo.
 - `403`: Auto-alteração ou falta de privilégio para alterar outro `super_admin`.
 - `404`: Usuário não encontrado.
 - `409`: Tentativa de rebaixar o único administrador ativo do sistema.
@@ -776,7 +776,7 @@ export interface ChangeStatusRequest {
 }
 
 export interface ChangeRoleRequest {
-  role_nome: "super_admin" | "admin" | "aluno";
+  role_nome: "super_admin" | "admin" | "usuario";
 }
 
 export interface CreateSectorRequest {
@@ -841,7 +841,7 @@ Rotas para gestão de setores e associação N:N entre usuários e setores, com 
 ### 11.2. Listar setores
 
 * **Rota:** `GET /sectors?pagina=1&limite=20`
-* **Permissão:** Todos os usuários autenticados (`super_admin`, `admin`, `aluno`)
+* **Permissão:** Todos os usuários autenticados (`super_admin`, `admin`, `usuario`)
 * **Response (200 OK):**
   ```json
   {

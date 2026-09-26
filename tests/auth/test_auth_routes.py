@@ -138,7 +138,10 @@ def test_forgot_password_sucesso(client, db_session):
         "/auth/forgot-password", json={"email": "integracao@teste.com"}
     )
     assert response.status_code == 200
-    assert response.json()["mensagem"] == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+    assert (
+        response.json()["mensagem"]
+        == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+    )
 
 
 def test_forgot_password_enumeracao(client):
@@ -148,7 +151,10 @@ def test_forgot_password_enumeracao(client):
     )
     # Deve retornar 200 na mesma para evitar enumeração
     assert response.status_code == 200
-    assert response.json()["mensagem"] == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+    assert (
+        response.json()["mensagem"]
+        == "Se o e-mail estiver cadastrado, um código de 6 dígitos foi enviado."
+    )
 
 
 def test_forgot_password_rate_limit_email(client):
@@ -165,7 +171,10 @@ def test_forgot_password_rate_limit_email(client):
     # Próxima requisição deve falhar
     res = client.post("/auth/forgot-password", json={"email": email})
     assert res.status_code == 429
-    assert res.json()["detail"] == "Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos."
+    assert (
+        res.json()["detail"]
+        == "Limite de solicitações atingido para este e-mail. Tente novamente em alguns minutos."
+    )
 
 
 def test_forgot_password_rate_limit_ip(client):
@@ -180,7 +189,10 @@ def test_forgot_password_rate_limit_ip(client):
 
     res = client.post("/auth/forgot-password", json={"email": "estourou@teste.com"})
     assert res.status_code == 429
-    assert res.json()["detail"] == "Muitas solicitações deste endereço. Tente novamente mais tarde."
+    assert (
+        res.json()["detail"]
+        == "Muitas solicitações deste endereço. Tente novamente mais tarde."
+    )
 
 
 # ── Testes de Verify Code (/auth/verify-code) ─────────────────
@@ -270,7 +282,10 @@ def test_reset_password_sucesso(client, monkeypatch):
         },
     )
     assert res.status_code == 200
-    assert res.json()["mensagem"] == "Sua senha foi redefinida com sucesso. Você já pode realizar o login."
+    assert (
+        res.json()["mensagem"]
+        == "Sua senha foi redefinida com sucesso. Você já pode realizar o login."
+    )
 
 
 def test_reset_password_senha_igual(client, monkeypatch):
@@ -304,7 +319,10 @@ def test_reset_password_token_invalido(client):
         },
     )
     assert res.status_code == 401
-    assert res.json()["detail"] == "Sessão de redefinição expirada. Solicite um novo código."
+    assert (
+        res.json()["detail"]
+        == "Sessão de redefinição expirada. Solicite um novo código."
+    )
 
 
 # ── Testes de Refresh e Logout ────────────────────────────────
@@ -398,5 +416,3 @@ def test_change_password_incorreta(client, usuario_ativo_logado):
 
     assert res.status_code == 401
     assert res.json()["detail"] == "A senha atual informada está incorreta."
-
-

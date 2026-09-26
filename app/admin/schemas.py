@@ -19,7 +19,7 @@ class ChangeRoleRequest(BaseModel):
 
     role_nome: str = Field(
         ...,
-        description="Nome do novo cargo. Valores aceitos: 'super_admin', 'admin', 'aluno'.",
+        description="Nome do novo cargo. Valores aceitos: 'super_admin', 'admin', 'usuario'.",
         examples=["admin"],
     )
 
@@ -58,7 +58,7 @@ class UsuarioListItem(BaseModel):
     )
     curso_nome: str = Field(
         ...,
-        description="Nome do curso do aluno (resolvido da relação).",
+        description="Nome do curso do usuario (resolvido da relação).",
         examples=["Engenharia de Software"],
     )
     status_nome: str = Field(
@@ -69,7 +69,7 @@ class UsuarioListItem(BaseModel):
     role_nome: str = Field(
         ...,
         description="Cargo/papel do usuário (resolvido da relação).",
-        examples=["aluno"],
+        examples=["usuario"],
     )
 
 

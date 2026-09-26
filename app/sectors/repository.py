@@ -37,9 +37,7 @@ def list_sectors_paginated(
     query = db.query(Sector)
     total = query.count()
     offset = (pagina - 1) * limite
-    setores = (
-        query.order_by(Sector.nome.asc()).offset(offset).limit(limite).all()
-    )
+    setores = query.order_by(Sector.nome.asc()).offset(offset).limit(limite).all()
     return setores, total
 
 
@@ -72,9 +70,7 @@ def count_leaders_by_sector(db: Session, sector_id: UUID) -> int:
 # ── Membros do Setor ────────────────────────────────────────
 
 
-def find_sector_user(
-    db: Session, sector_id: UUID, user_id: UUID
-) -> SectorUser | None:
+def find_sector_user(db: Session, sector_id: UUID, user_id: UUID) -> SectorUser | None:
     """Busca a associação de um usuário em um setor."""
     return (
         db.query(SectorUser)
@@ -88,11 +84,7 @@ def find_sector_user(
 
 def list_sector_members(db: Session, sector_id: UUID) -> list[SectorUser]:
     """Lista todos os membros/líderes de um setor com dados do usuário."""
-    return (
-        db.query(SectorUser)
-        .filter(SectorUser.setor_id == sector_id)
-        .all()
-    )
+    return db.query(SectorUser).filter(SectorUser.setor_id == sector_id).all()
 
 
 def add_member_to_sector(db: Session, sector_user: SectorUser) -> SectorUser:
