@@ -38,10 +38,10 @@ def upgrade() -> None:
         "INSERT INTO cargos (id, nome) VALUES ('2fa85f64-5717-4562-b3fc-2c963f66afa2', 'admin')"
     )
     op.execute(
-        "INSERT INTO cargos (id, nome) VALUES ('2fa85f64-5717-4562-b3fc-2c963f66afa3', 'aluno')"
+        "INSERT INTO cargos (id, nome) VALUES ('2fa85f64-5717-4562-b3fc-2c963f66afa3', 'usuario')"
     )
 
-    # 2. Atualizar usuários existentes para 'aluno'
+    # 2. Atualizar usuários existentes para 'usuario'
     op.execute(
         "UPDATE usuarios SET global_role = '2fa85f64-5717-4562-b3fc-2c963f66afa3' WHERE global_role IS NULL"
     )

@@ -91,7 +91,7 @@ python run.py
 Para especificações técnicas aprofundadas, consulte os documentos na pasta [`docs/`](docs/):
 
 - 📄 [**Contrato da API (`docs/api_contract.md`)**](docs/api_contract.md): Especificação de endpoints, formato de payloads (request/response), status HTTP e interfaces TypeScript para integração com o frontend.
-- 🔐 [**Módulo de Identidade e RBAC (`docs/modulo_identidade.md`)**](docs/modulo_identidade.md): Fluxo de aprovação de contas, controle de acesso baseado em papéis (`super_admin`, `admin`, `aluno`), soft deletes e recuperação de senha (OTP via Redis).
+- 🔐 [**Módulo de Identidade e RBAC (`docs/modulo_identidade.md`)**](docs/modulo_identidade.md): Fluxo de aprovação de contas, controle de acesso baseado em papéis (`super_admin`, `admin`, `usuario`), soft deletes e recuperação de senha (OTP via Redis).
 - 🏗️ [**Infraestrutura Base (`docs/infraestrutura_base.md`)**](docs/infraestrutura_base.md): Detalhes sobre conexão com PostgreSQL (Psycopg 3), gerenciamento de sessões, cache Redis, serviço de e-mails SMTP e automação com `run.py`.
 
 ---

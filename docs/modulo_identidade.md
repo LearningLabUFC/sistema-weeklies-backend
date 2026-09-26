@@ -25,12 +25,12 @@ O controle de acesso às rotas da API é gerenciado através da tabela `cargos` 
 
 ### Cargos Existentes
 - **`super_admin`**: Acesso irrestrito ao sistema. Único perfil com permissão para inativar qualquer membro e alterar cargos de outros administradores.
-- **`admin`**: Acesso administrativo padrão. Permite visualizar usuários, aprovar pendentes e alterar cargos de alunos.
-- **`aluno`**: Cargo padrão (atribuído automaticamente no cadastro). Possui permissões restritas apenas às suas próprias entidades.
+- **`admin`**: Acesso administrativo padrão. Permite visualizar usuários, aprovar pendentes e alterar cargos de usuarios.
+- **`usuario`**: Cargo padrão (atribuído automaticamente no cadastro). Possui permissões restritas apenas às suas próprias entidades.
 
 ### Implementação de Segurança
 As rotas são protegidas utilizando a dependência FastAPI `require_role(allowed_roles)` em conjunto com `get_current_user`. 
-Por exemplo, uma rota decorada com `Depends(require_role(["super_admin", "admin"]))` bloqueará automaticamente com HTTP `403 Forbidden` qualquer requisição cujo usuário logado seja um `aluno`.
+Por exemplo, uma rota decorada com `Depends(require_role(["super_admin", "admin"]))` bloqueará automaticamente com HTTP `403 Forbidden` qualquer requisição cujo usuário logado seja um `usuario`.
 
 ---
 
@@ -42,7 +42,7 @@ O router `/admin` centraliza os endpoints protegidos para gestão da equipe:
 - **`GET /admin/users`** *(Requer `admin` ou `super_admin`)*: Listagem paginada (`pagina`, `limite`), com filtros por status (`status`), cargo (`role`) e busca textual case-insensitive por nome ou e-mail (`busca`). Retorna os dados com nomes resolvidos das relações (`curso_nome`, `status_nome`, `role_nome`).
 - **`GET /admin/users/pending`** *(Requer `admin` ou `super_admin`)*: Retorna a lista de usuários com status `pendente` aguardando moderação.
 - **`PATCH /admin/users/{user_id}/status`** *(Requer `admin` ou `super_admin`)*: Altera o status do usuário (ex: de `pendente` para `ativo` ou `inativo`). Um `admin` comum é bloqueado caso tente alterar o status de um `super_admin`.
-- **`PATCH /admin/users/{user_id}/role`** *(Requer `admin` ou `super_admin`)*: Altera o cargo de um membro (`super_admin`, `admin`, `aluno`).
+- **`PATCH /admin/users/{user_id}/role`** *(Requer `admin` ou `super_admin`)*: Altera o cargo de um membro (`super_admin`, `admin`, `usuario`).
   - *Proteções implementadas:* Proíbe auto-rebaixamento, impede que `admin` comum altere `super_admin`, exige que o usuário esteja ativo e impede o rebaixamento caso reste apenas 1 administrador ativo no sistema.
 - **`DELETE /admin/users/{user_id}`** *(Requer `super_admin`)*: Inativa (soft delete) qualquer usuário ou administrador no sistema.
 

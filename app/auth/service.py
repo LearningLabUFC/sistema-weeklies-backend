@@ -315,6 +315,3 @@ async def svc_change_password(
     update_user(db, current_user)
 
     return MensagemResponse(mensagem="Senha alterada com sucesso.")
-
-
-

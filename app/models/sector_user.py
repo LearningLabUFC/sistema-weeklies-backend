@@ -21,15 +21,9 @@ class SectorUser(Base):
     __tablename__ = "setor_usuarios"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    setor_id = Column(
-        UUID(as_uuid=True), ForeignKey("setores.id"), nullable=False
-    )
-    usuario_id = Column(
-        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False
-    )
-    papel = Column(
-        String(20), nullable=False, default="membro"
-    )  # "lider" ou "membro"
+    setor_id = Column(UUID(as_uuid=True), ForeignKey("setores.id"), nullable=False)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
+    papel = Column(String(20), nullable=False, default="membro")  # "lider" ou "membro"
 
     # Relationships
     setor = relationship("Sector", back_populates="usuarios")

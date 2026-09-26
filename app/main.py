@@ -37,7 +37,7 @@ app = FastAPI(
     title="Sistema de Gestão LL",
     description=(
         "API RESTful avançada para o sistema de Gestão LL "
-        "(UFC — Campus Russas). Gerenciamento completo de alunos, "
+        "(UFC — Campus Russas). Gerenciamento completo de usuarios, "
         "horas, weeklies, reuniões, setores e dashboard analítico."
     ),
     version="1.0.0",
