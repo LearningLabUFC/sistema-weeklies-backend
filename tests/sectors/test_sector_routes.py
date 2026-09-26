@@ -10,8 +10,8 @@ from app.models.user import User
 from conftest import (
     CURSO_TESTE_ID,
     ROLE_ADMIN_ID,
-    ROLE_ALUNO_ID,
     ROLE_SUPER_ADMIN_ID,
+    ROLE_USUARIO_ID,
     SETOR_TESTE_ID,
     STATUS_ATIVO_ID,
 )
@@ -61,10 +61,10 @@ def super_admin_logado(client, db_session):
 
 
 @pytest.fixture
-def aluno_logado(client, db_session):
+def usuario_logado(client, db_session):
     """Cria e loga um usuário com role 'usuario'."""
     return _registrar_e_logar(
-        client, db_session, "secaluno@teste.com", "200003", ROLE_ALUNO_ID
+        client, db_session, "secaluno@teste.com", "200003", ROLE_USUARIO_ID
     )
 
 
@@ -72,7 +72,7 @@ def aluno_logado(client, db_session):
 def membro_extra(client, db_session):
     """Cria um segundo membro para associação com setor."""
     return _registrar_e_logar(
-        client, db_session, "secmembro@teste.com", "200004", ROLE_ALUNO_ID
+        client, db_session, "secmembro@teste.com", "200004", ROLE_USUARIO_ID
     )
 
 
@@ -114,9 +114,9 @@ def test_create_sector_duplicado(client, admin_logado):
     assert res.status_code == 409
 
 
-def test_create_sector_aluno_bloqueado(client, aluno_logado):
+def test_create_sector_usuario_bloqueado(client, usuario_logado):
     """Usuarios NÃO podem criar setores (403)."""
-    _user, token = aluno_logado
+    _user, token = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
@@ -157,9 +157,9 @@ def test_list_sectors_super_admin(client, super_admin_logado):
     assert "setores" in data
 
 
-def test_list_sectors_aluno(client, aluno_logado):
+def test_list_sectors_usuario(client, usuario_logado):
     """Usuario (Membro) deve conseguir listar setores (apenas saber que existem)."""
-    _user, token = aluno_logado
+    _user, token = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.get("/sectors", headers=headers)
@@ -185,9 +185,9 @@ def test_get_sector_detail(client, admin_logado):
     assert "membros" in data
 
 
-def test_get_sector_detail_aluno(client, aluno_logado):
+def test_get_sector_detail_usuario(client, usuario_logado):
     """Usuario não deve conseguir ver detalhes do setor (403)."""
-    _user, token = aluno_logado
+    _user, token = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.get(f"/sectors/{SETOR_TESTE_ID}", headers=headers)
@@ -264,10 +264,10 @@ def test_delete_sector_admin_bloqueado(client, admin_logado):
 # ── Testes de POST /sectors/{sector_id}/members ──────────────
 
 
-def test_add_member_to_sector(client, admin_logado, aluno_logado):
+def test_add_member_to_sector(client, admin_logado, usuario_logado):
     """Admin deve conseguir adicionar um membro a um setor."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
@@ -281,10 +281,10 @@ def test_add_member_to_sector(client, admin_logado, aluno_logado):
     assert "com sucesso" in res.json()["mensagem"]
 
 
-def test_add_member_duplicado(client, admin_logado, aluno_logado):
+def test_add_member_duplicado(client, admin_logado, usuario_logado):
     """Adicionar membro já existente deve retornar 409."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     # Adiciona pela primeira vez
@@ -304,10 +304,10 @@ def test_add_member_duplicado(client, admin_logado, aluno_logado):
     assert res.status_code == 409
 
 
-def test_add_member_papel_invalido(client, admin_logado, aluno_logado):
+def test_add_member_papel_invalido(client, admin_logado, usuario_logado):
     """Papel inválido deve retornar 400."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.post(
@@ -339,10 +339,10 @@ def test_add_leader_to_sector(client, admin_logado, membro_extra):
 # ── Testes de DELETE /sectors/{sector_id}/members/{user_id} ──
 
 
-def test_remove_member_from_sector(client, admin_logado, aluno_logado):
+def test_remove_member_from_sector(client, admin_logado, usuario_logado):
     """Admin deve conseguir remover um membro de um setor."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     # Adicionar membro primeiro
@@ -379,10 +379,10 @@ def test_remove_member_not_found(client, admin_logado):
 # ── Testes de PATCH /sectors/{sector_id}/members/{user_id}/role ──
 
 
-def test_change_member_role(client, admin_logado, aluno_logado):
+def test_change_member_role(client, admin_logado, usuario_logado):
     """Admin deve conseguir alterar o papel de um membro no setor."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     # Adicionar como membro
@@ -404,10 +404,10 @@ def test_change_member_role(client, admin_logado, aluno_logado):
     assert "lider" in res.json()["mensagem"]
 
 
-def test_change_role_same_papel(client, admin_logado, aluno_logado):
+def test_change_role_same_papel(client, admin_logado, usuario_logado):
     """Alterar para o mesmo papel deve retornar 400."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     # Adicionar como membro
@@ -430,10 +430,10 @@ def test_change_role_same_papel(client, admin_logado, aluno_logado):
 # ── Testes de verificação do detalhe com membros ─────────────
 
 
-def test_sector_detail_with_members(client, admin_logado, aluno_logado):
+def test_sector_detail_with_members(client, admin_logado, usuario_logado):
     """O detalhe do setor deve incluir membros adicionados."""
     _admin, token = admin_logado
-    usuario, _ = aluno_logado
+    usuario, _ = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     # Adicionar membro
