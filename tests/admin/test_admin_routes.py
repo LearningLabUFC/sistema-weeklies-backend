@@ -4,14 +4,8 @@ Testes de Integração — Rotas de Administração (/admin)
 
 import pytest
 
+from app.core.constants import RoleID, StatusID, TestID
 from app.models.user import User
-from conftest import (
-    CURSO_TESTE_ID,
-    ROLE_ADMIN_ID,
-    ROLE_SUPER_ADMIN_ID,
-    ROLE_USUARIO_ID,
-    STATUS_ATIVO_ID,
-)
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -25,11 +19,11 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
         "matricula": matricula,
         "data_nascimento": "2000-01-01",
         "meta_horas_semanais": 12,
-        "curso_id": str(CURSO_TESTE_ID),
+        "curso_id": str(TestID.CURSO_TESTE),
     }
     client.post("/auth/register", json=payload)
     user = db_session.query(User).filter(User.email == email).first()
-    user.status_id = STATUS_ATIVO_ID
+    user.status_id = StatusID.ATIVO
     user.global_role = role_id
     db_session.commit()
     res_login = client.post(
@@ -45,7 +39,7 @@ def _registrar_e_logar(client, db_session, email, matricula, role_id):
 def admin_logado(client, db_session):
     """Cria e loga um usuário com role 'admin'."""
     return _registrar_e_logar(
-        client, db_session, "admin@teste.com", "100001", ROLE_ADMIN_ID
+        client, db_session, "admin@teste.com", "100001", RoleID.ADMIN
     )
 
 
@@ -53,7 +47,7 @@ def admin_logado(client, db_session):
 def super_admin_logado(client, db_session):
     """Cria e loga um usuário com role 'super_admin'."""
     return _registrar_e_logar(
-        client, db_session, "super@teste.com", "100002", ROLE_SUPER_ADMIN_ID
+        client, db_session, "super@teste.com", "100002", RoleID.SUPER_ADMIN
     )
 
 
@@ -61,7 +55,7 @@ def super_admin_logado(client, db_session):
 def usuario_logado(client, db_session):
     """Cria e loga um usuário com role 'usuario'."""
     return _registrar_e_logar(
-        client, db_session, "usuario@teste.com", "100003", ROLE_USUARIO_ID
+        client, db_session, "usuario@teste.com", "100003", RoleID.USUARIO
     )
 
 
@@ -75,7 +69,7 @@ def usuario_pendente(client, db_session):
         "matricula": "100004",
         "data_nascimento": "2000-01-01",
         "meta_horas_semanais": 12,
-        "curso_id": str(CURSO_TESTE_ID),
+        "curso_id": str(TestID.CURSO_TESTE),
     }
     client.post("/auth/register", json=payload)
     return db_session.query(User).filter(User.email == "pendente@teste.com").first()
@@ -313,7 +307,7 @@ def test_change_role_ultimo_admin(client, super_admin_logado, db_session):
     from unittest.mock import patch
 
     alvo, _ = _registrar_e_logar(
-        client, db_session, "alvoadmin@teste.com", "100005", ROLE_ADMIN_ID
+        client, db_session, "alvoadmin@teste.com", "100005", RoleID.ADMIN
     )
 
     with patch("sqlalchemy.orm.query.Query.scalar", return_value=1):

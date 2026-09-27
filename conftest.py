@@ -1,5 +1,3 @@
-import uuid
-
 import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
@@ -7,28 +5,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
+from app.core.constants import RoleID, RoleName, StatusID, StatusName, TestID
 from app.database import Base, get_db
 from app.main import app
 from app.models.course import Course
-from app.seeds.seed_roles import ROLES
-from app.seeds.seed_status import STATUSES
 from tests.setup_test_db import init_test_db
-
-# ── Constantes centralizadas derivadas dos Seeds reais ───────
-# Todos os arquivos de teste devem importar daqui em vez de
-# redefinir UUIDs manualmente.
-
-STATUS_PENDENTE_ID = next(s["id"] for s in STATUSES if s["nome"] == "pendente")
-STATUS_ATIVO_ID = next(s["id"] for s in STATUSES if s["nome"] == "ativo")
-STATUS_INATIVO_ID = next(s["id"] for s in STATUSES if s["nome"] == "inativo")
-
-ROLE_SUPER_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "super_admin")
-ROLE_ADMIN_ID = next(r["id"] for r in ROLES if r["nome"] == "admin")
-ROLE_USUARIO_ID = next(r["id"] for r in ROLES if r["nome"] == "usuario")
-
-# IDs de entidades criadas exclusivamente para testes (no fixture tables)
-CURSO_TESTE_ID = uuid.UUID("3fa85f64-5717-4562-b3fc-2c963f66afa4")
-SETOR_TESTE_ID = uuid.UUID("4fa85f64-5717-4562-b3fc-2c963f66afa1")
 
 # 1. Certificar que o DB de testes existe
 init_test_db()
@@ -54,26 +35,34 @@ def tables():
     db = TestingSessionLocal()
     try:
         # Seeds de Roles
-        for r_data in ROLES:
-            if not db.query(Role).filter(Role.id == r_data["id"]).first():
-                db.add(Role(id=r_data["id"], nome=r_data["nome"]))
+        for role_id, role_nome in [
+            (RoleID.SUPER_ADMIN, RoleName.SUPER_ADMIN),
+            (RoleID.ADMIN, RoleName.ADMIN),
+            (RoleID.USUARIO, RoleName.USUARIO),
+        ]:
+            if not db.query(Role).filter(Role.id == role_id).first():
+                db.add(Role(id=role_id, nome=role_nome))
 
         # Seeds de Statuses
-        for s_data in STATUSES:
-            if not db.query(Status).filter(Status.id == s_data["id"]).first():
-                db.add(Status(id=s_data["id"], nome=s_data["nome"]))
+        for status_id, status_nome in [
+            (StatusID.PENDENTE, StatusName.PENDENTE),
+            (StatusID.ATIVO, StatusName.ATIVO),
+            (StatusID.INATIVO, StatusName.INATIVO),
+        ]:
+            if not db.query(Status).filter(Status.id == status_id).first():
+                db.add(Status(id=status_id, nome=status_nome))
 
         # Seed de Curso padrão para testes
-        if not db.query(Course).filter(Course.id == CURSO_TESTE_ID).first():
+        if not db.query(Course).filter(Course.id == TestID.CURSO_TESTE).first():
             db.add(
                 Course(
-                    id=CURSO_TESTE_ID, nome="Engenharia de Software Teste", ativo=True
+                    id=TestID.CURSO_TESTE, nome="Engenharia de Software Teste", ativo=True
                 )
             )
 
         # Seed de Setor padrão para testes
-        if not db.query(Sector).filter(Sector.id == SETOR_TESTE_ID).first():
-            db.add(Sector(id=SETOR_TESTE_ID, nome="Desenvolvimento Teste"))
+        if not db.query(Sector).filter(Sector.id == TestID.SETOR_TESTE).first():
+            db.add(Sector(id=TestID.SETOR_TESTE, nome="Desenvolvimento Teste"))
 
         db.commit()
     finally:

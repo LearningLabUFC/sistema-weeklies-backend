@@ -4,8 +4,8 @@ Testes de Integração — Rotas de Perfil do Usuário (/users)
 
 import pytest
 
+from app.core.constants import StatusID, TestID
 from app.models.user import User
-from conftest import CURSO_TESTE_ID, STATUS_ATIVO_ID
 
 # ── Constantes ───────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ VALID_REGISTER_PAYLOAD = {
     "matricula": "543578",
     "data_nascimento": "2000-01-01",
     "meta_horas_semanais": 12,
-    "curso_id": str(CURSO_TESTE_ID),
+    "curso_id": str(TestID.CURSO_TESTE),
 }
 
 VALID_LOGIN_PAYLOAD = {
@@ -33,7 +33,7 @@ def usuario_ativo_logado(client, db_session):
     """Registra, ativa e loga um usuário. Retorna (user, tokens_dict)."""
     client.post("/auth/register", json=VALID_REGISTER_PAYLOAD)
     user = db_session.query(User).filter(User.email == "integracao@teste.com").first()
-    user.status_id = STATUS_ATIVO_ID
+    user.status_id = StatusID.ATIVO
     db_session.commit()
     res = client.post("/auth/login", json=VALID_LOGIN_PAYLOAD)
     tokens = res.json()
@@ -56,8 +56,8 @@ def test_get_me_sucesso(client, usuario_ativo_logado):
     assert data["usuario"]["email"] == "integracao@teste.com"
     assert data["usuario"]["nome_completo"] == "Usuário de Integração"
     assert data["usuario"]["matricula"] == "543578"
-    assert data["usuario"]["curso_id"] == str(CURSO_TESTE_ID)
-    assert data["usuario"]["status_id"] == str(STATUS_ATIVO_ID)
+    assert data["usuario"]["curso_id"] == str(TestID.CURSO_TESTE)
+    assert data["usuario"]["status_id"] == str(StatusID.ATIVO)
 
 
 def test_get_me_sem_token(client):

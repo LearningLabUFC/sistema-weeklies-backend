@@ -4,8 +4,8 @@ Testes de Integração — Rotas de Autenticação
 
 import pytest
 
+from app.core.constants import StatusID, TestID
 from app.models.user import User
-from conftest import CURSO_TESTE_ID, STATUS_ATIVO_ID
 
 # ── Constantes e Payloads Base ───────────────────────────────
 
@@ -16,7 +16,7 @@ VALID_REGISTER_PAYLOAD = {
     "matricula": "543578",
     "data_nascimento": "2000-01-01",
     "meta_horas_semanais": 12,
-    "curso_id": str(CURSO_TESTE_ID),
+    "curso_id": str(TestID.CURSO_TESTE),
 }
 
 VALID_LOGIN_PAYLOAD = {"email": "integracao@teste.com", "senha": "SenhaForte123!"}
@@ -30,7 +30,7 @@ def usuario_ativo_logado(client, db_session):
     """Registra, ativa e loga um usuário. Retorna (user, tokens_dict)."""
     client.post("/auth/register", json=VALID_REGISTER_PAYLOAD)
     user = db_session.query(User).filter(User.email == "integracao@teste.com").first()
-    user.status_id = STATUS_ATIVO_ID
+    user.status_id = StatusID.ATIVO
     db_session.commit()
     res = client.post("/auth/login", json=VALID_LOGIN_PAYLOAD)
     tokens = res.json()
