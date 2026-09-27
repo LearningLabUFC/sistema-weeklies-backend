@@ -64,7 +64,7 @@ def super_admin_logado(client, db_session):
 def usuario_logado(client, db_session):
     """Cria e loga um usuário com role 'usuario'."""
     return _registrar_e_logar(
-        client, db_session, "secaluno@teste.com", "200003", ROLE_USUARIO_ID
+        client, db_session, "secusuario@teste.com", "200003", ROLE_USUARIO_ID
     )
 
 
@@ -450,4 +450,4 @@ def test_sector_detail_with_members(client, admin_logado, usuario_logado):
     data = res.json()
     assert len(data["membros"]) >= 1
     emails = [m["email"] for m in data["membros"]]
-    assert "secaluno@teste.com" in emails
+    assert "secusuario@teste.com" in emails
