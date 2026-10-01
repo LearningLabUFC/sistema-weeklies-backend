@@ -6,8 +6,10 @@ detectar as tabelas via Base.metadata ao gerar migrations.
 """
 
 from app.models.course import Course  # noqa: F401
+from app.models.pause import Pause  # noqa: F401
 from app.models.role import Role  # noqa: F401
 from app.models.sector import Sector  # noqa: F401
 from app.models.sector_user import SectorUser  # noqa: F401
 from app.models.status import Status  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.work_session import WorkSession  # noqa: F401

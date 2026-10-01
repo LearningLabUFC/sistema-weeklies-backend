@@ -33,6 +33,7 @@ class Sector(Base):
 
     # relação 1:N com a tabela associativa
     usuarios = relationship("SectorUser", back_populates="setor")
+    sessao_trabalho = relationship("WorkSession", back_populates="setor")
 
     def __repr__(self) -> str:
         return f"<Sector {self.nome} (Ativo: {self.ativo})>"

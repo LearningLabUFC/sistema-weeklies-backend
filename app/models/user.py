@@ -47,6 +47,7 @@ class User(Base):
     curso = relationship("Course", back_populates="usuarios")
     status = relationship("Status")
     role = relationship("Role")
+    sessao_trabalho = relationship("WorkSession", back_populates="usuario")
 
     # relação N:N com setores (via tabela associativa)
     setores = relationship("SectorUser", back_populates="usuario")
