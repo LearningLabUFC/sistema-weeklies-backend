@@ -34,9 +34,9 @@ class WorkSession(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index = True)
     setor_id = Column(UUID(as_uuid=True), ForeignKey("setores.id"), nullable=False, index = True)
-    entrada = Column(DateTime, nullable=False)
-    saida = Column(DateTime, nullable=True)
-    expiracao = Column(DateTime, nullable=True)
+    entrada = Column(DateTime(timezone=True), nullable=False)
+    saida = Column(DateTime(timezone=True), nullable=True)
+    expiracao = Column(DateTime(timezone=True), nullable=True)
     status = Column(Enum(WorkSessionStatus), nullable=False, default=WorkSessionStatus.ATIVA)
     motivo_encerramento = Column(Enum(MotivoEncerramento), nullable=True)
 

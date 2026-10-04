@@ -19,8 +19,8 @@ class Pause(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sessao_trabalho_id = Column(UUID(as_uuid=True), ForeignKey("sessoes_trabalho.id"), nullable=False, index = True)
-    inicio = Column(DateTime, nullable=False)
-    fim = Column(DateTime, nullable=True)
+    inicio = Column(DateTime(timezone=True), nullable=False)
+    fim = Column(DateTime(timezone=True), nullable=True)
 
     # Relacionamentos
     sessao_trabalho = relationship("WorkSession", back_populates="pausas")

@@ -1,8 +1,8 @@
-"""criar_tabelas_sessoes_trabalho_e_pausas
+"""criar tabelas sessoes trabalho e pausas
 
-Revision ID: 1d5b805dff8c
+Revision ID: f5cbe1c91c3f
 Revises: dfe50706c0ed
-Create Date: 2026-10-01 17:50:09.350755
+Create Date: 2026-10-03 17:35:55.970769
 
 """
 from collections.abc import Sequence
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '1d5b805dff8c'
+revision: str = 'f5cbe1c91c3f'
 down_revision: str | None = 'dfe50706c0ed'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -25,9 +25,9 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('usuario_id', sa.UUID(), nullable=False),
     sa.Column('setor_id', sa.UUID(), nullable=False),
-    sa.Column('entrada', sa.DateTime(), nullable=False),
-    sa.Column('saida', sa.DateTime(), nullable=True),
-    sa.Column('expiracao', sa.DateTime(), nullable=True),
+    sa.Column('entrada', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('saida', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('expiracao', sa.DateTime(timezone=True), nullable=True),
     sa.Column('status', sa.Enum('ATIVA', 'EM_PAUSA', 'FINALIZADA', 'EXPIRADA_SISTEMA', name='worksessionstatus'), nullable=False),
     sa.Column('motivo_encerramento', sa.Enum('MANUAL', 'LIMITE_ATINGIDO', name='motivoencerramento'), nullable=True),
     sa.CheckConstraint('saida IS NULL OR saida >= entrada', name='ck_sessao_saida_valida'),
@@ -41,8 +41,8 @@ def upgrade() -> None:
     op.create_table('pausas',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('sessao_trabalho_id', sa.UUID(), nullable=False),
-    sa.Column('inicio', sa.DateTime(), nullable=False),
-    sa.Column('fim', sa.DateTime(), nullable=True),
+    sa.Column('inicio', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('fim', sa.DateTime(timezone=True), nullable=True),
     sa.CheckConstraint('fim IS NULL OR fim >= inicio', name='ck_pausa_fim_valido'),
     sa.ForeignKeyConstraint(['sessao_trabalho_id'], ['sessoes_trabalho.id'], ),
     sa.PrimaryKeyConstraint('id')
