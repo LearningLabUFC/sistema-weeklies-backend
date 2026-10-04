@@ -119,6 +119,32 @@ def update_pause(
     db.refresh(pause)
     return pause
 
+def commit_started_pause(
+    db: Session,
+    work_session: WorkSession,
+    pause: Pause,
+) -> None:
+    db.add(work_session)
+    db.add(pause)
+
+    db.commit()
+
+    db.refresh(work_session)
+    db.refresh(pause)
+
+
+def commit_finished_pause(
+    db: Session,
+    work_session: WorkSession,
+    pause: Pause,
+) -> None:
+    db.add(work_session)
+    db.add(pause)
+
+    db.commit()
+
+    db.refresh(work_session)
+    db.refresh(pause)
 
 # ── Listagem e Paginação ─────────────────────────────────────
 
@@ -287,3 +313,35 @@ def list_users_with_sessions_in_period(
         .order_by(User.nome_completo.asc())
         .all()
     )
+
+def commit_expired_work_session(
+    db: Session,
+    work_session: WorkSession,
+    pause: Pause | None = None,
+) -> None:
+    if pause is not None:
+        db.add(pause)
+
+    db.add(work_session)
+    db.commit()
+
+    db.refresh(work_session)
+
+    if pause is not None:
+        db.refresh(pause)
+
+def commit_finished_work_session(
+    db: Session,
+    work_session: WorkSession,
+    pause: Pause | None = None,
+) -> None:
+    if pause is not None:
+        db.add(pause)
+
+    db.add(work_session)
+    db.commit()
+
+    db.refresh(work_session)
+
+    if pause is not None:
+        db.refresh(pause)
