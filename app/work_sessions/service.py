@@ -24,6 +24,7 @@ from app.work_sessions.repository import (
     commit_finished_pause,
     commit_finished_work_session,
     commit_started_pause,
+    count_sessions_started_in_period,
     create_work_session,
     find_expired_open_sessions,
     find_open_pause_by_session_id,
@@ -32,11 +33,18 @@ from app.work_sessions.repository import (
     find_sessions_in_period,
     find_work_session_by_id,
     list_pauses_by_session_id,
+    list_sectors_with_sessions_in_period,
+    list_users_with_sessions_in_period,
     list_work_sessions_paginated,
     update_work_session,
 )
 from app.work_sessions.schemas import (
     CurrentWorkSessionResponse,
+    MetricsSectorItem,
+    MetricsSectorsResponse,
+    MetricsSummaryResponse,
+    MetricsUserItem,
+    MetricsUsersResponse,
     PauseItem,
     StartWorkSessionRequest,
     WorkSessionDetail,
@@ -45,6 +53,81 @@ from app.work_sessions.schemas import (
     WorkSessionSummaryResponse,
 )
 
+
+def _validate_metrics_access(
+    current_user: User,
+) -> None:
+    if current_user.role.nome not in (
+        RoleName.ADMIN,
+        RoleName.SUPER_ADMIN,
+    ):
+        raise ForbiddenError(
+            "Apenas admin e super_admin podem consultar "
+            "as métricas administrativas."
+        )
+
+def _calculate_pause_time_in_period(
+    work_session: WorkSession,
+    inicio: datetime,
+    fim: datetime,
+    db: Session,
+) -> int:
+    agora = datetime.now(timezone.utc)
+
+    if work_session.saida is not None:
+        fim_sessao = work_session.saida
+    else:
+        fim_sessao = min(
+            agora,
+            work_session.expiracao,
+        )
+
+    inicio_calculo = max(
+        work_session.entrada,
+        inicio,
+    )
+
+    fim_calculo = min(
+        fim_sessao,
+        fim,
+    )
+
+    if inicio_calculo >= fim_calculo:
+        return 0
+
+    total_pausa_segundos = 0
+
+    pausas = list_pauses_by_session_id(
+        db,
+        work_session.id,
+    )
+
+    for pausa in pausas:
+        inicio_pausa = max(
+            pausa.inicio,
+            inicio_calculo,
+        )
+
+        fim_original_pausa = (
+            pausa.fim
+            if pausa.fim is not None
+            else fim_calculo
+        )
+
+        fim_pausa = min(
+            fim_original_pausa,
+            fim_calculo,
+        )
+
+        if inicio_pausa < fim_pausa:
+            total_pausa_segundos += (
+                fim_pausa - inicio_pausa
+            ).total_seconds()
+
+    return max(
+        0,
+        int(total_pausa_segundos),
+    )
 
 def _calculate_work_time(
     work_session: WorkSession,
@@ -756,4 +839,295 @@ def svc_get_work_session_summary(
         inicio=inicio,
         fim=fim,
         tempo_trabalhado_segundos=tempo_total_segundos,
+    )
+
+def svc_get_metrics_summary(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None,
+    setor_id: UUID | None,
+    current_user: User,
+    db: Session,
+) -> MetricsSummaryResponse:
+    _validate_metrics_access(current_user)
+
+    if inicio >= fim:
+        raise BadRequestError(
+            "O horário inicial deve ser anterior ao horário final."
+        )
+
+    sessoes = find_sessions_in_period(
+        db=db,
+        inicio=inicio,
+        fim=fim,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+    )
+
+    tempo_trabalhado_segundos = 0
+    tempo_pausado_segundos = 0
+    usuarios_com_tempo = set()
+
+    for work_session in sessoes:
+        tempo_trabalhado = _calculate_work_time_in_period(
+            work_session,
+            inicio,
+            fim,
+            db,
+        )
+
+        tempo_pausado = _calculate_pause_time_in_period(
+            work_session,
+            inicio,
+            fim,
+            db,
+        )
+
+        tempo_trabalhado_segundos += tempo_trabalhado
+        tempo_pausado_segundos += tempo_pausado
+
+        if tempo_trabalhado > 0:
+            usuarios_com_tempo.add(
+                work_session.usuario_id
+            )
+
+    sessoes_iniciadas = count_sessions_started_in_period(
+        db=db,
+        inicio=inicio,
+        fim=fim,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+    )
+
+    return MetricsSummaryResponse(
+        inicio=inicio,
+        fim=fim,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+        tempo_trabalhado_segundos=tempo_trabalhado_segundos,
+        tempo_pausado_segundos=tempo_pausado_segundos,
+        sessoes_iniciadas=sessoes_iniciadas,
+        usuarios_com_tempo_trabalhado=len(
+            usuarios_com_tempo
+        ),
+    )
+
+def svc_get_metrics_users(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None,
+    setor_id: UUID | None,
+    pagina: int,
+    limite: int,
+    current_user: User,
+    db: Session,
+) -> MetricsUsersResponse:
+    _validate_metrics_access(current_user)
+
+    if inicio >= fim:
+        raise BadRequestError(
+            "O horário inicial deve ser anterior ao horário final."
+        )
+
+    if usuario_id is not None:
+        sessoes = find_sessions_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario_id,
+            setor_id=setor_id,
+        )
+
+        usuarios = []
+
+        if sessoes:
+            usuario = sessoes[0].usuario
+            usuarios.append(usuario)
+    else:
+        usuarios = list_users_with_sessions_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            setor_id=setor_id,
+        )
+
+    total = len(usuarios)
+
+    inicio_pagina = (pagina - 1) * limite
+    fim_pagina = inicio_pagina + limite
+
+    usuarios_paginados = usuarios[
+        inicio_pagina:fim_pagina
+    ]
+
+    itens = []
+
+    for usuario in usuarios_paginados:
+        sessoes = find_sessions_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario.id,
+            setor_id=setor_id,
+        )
+
+        tempo_trabalhado = 0
+        tempo_pausado = 0
+
+        for work_session in sessoes:
+            tempo_trabalhado += _calculate_work_time_in_period(
+                work_session,
+                inicio,
+                fim,
+                db,
+            )
+
+            tempo_pausado += _calculate_pause_time_in_period(
+                work_session,
+                inicio,
+                fim,
+                db,
+            )
+
+        sessoes_iniciadas = count_sessions_started_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario.id,
+            setor_id=setor_id,
+        )
+
+        itens.append(
+            MetricsUserItem(
+                usuario_id=usuario.id,
+                nome_completo=usuario.nome_completo,
+                tempo_trabalhado_segundos=tempo_trabalhado,
+                tempo_pausado_segundos=tempo_pausado,
+                sessoes_iniciadas=sessoes_iniciadas,
+            )
+        )
+
+    itens.sort(
+        key=lambda item: str(item.usuario_id)
+    )
+
+    return MetricsUsersResponse(
+        inicio=inicio,
+        fim=fim,
+        pagina=pagina,
+        limite=limite,
+        total=total,
+        usuarios=itens,
+    )
+
+def svc_get_metrics_sectors(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None,
+    setor_id: UUID | None,
+    pagina: int,
+    limite: int,
+    current_user: User,
+    db: Session,
+) -> MetricsSectorsResponse:
+    _validate_metrics_access(current_user)
+
+    if inicio >= fim:
+        raise BadRequestError(
+            "O horário inicial deve ser anterior ao horário final."
+        )
+
+    if setor_id is not None:
+        setor = find_sector_by_id(
+            db,
+            setor_id,
+        )
+
+        setores = [setor] if setor is not None else []
+    else:
+        setores = list_sectors_with_sessions_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario_id,
+        )
+
+    total = len(setores)
+
+    inicio_pagina = (pagina - 1) * limite
+    fim_pagina = inicio_pagina + limite
+
+    setores_paginados = setores[
+        inicio_pagina:fim_pagina
+    ]
+
+    itens = []
+
+    for setor in setores_paginados:
+        sessoes = find_sessions_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario_id,
+            setor_id=setor.id,
+        )
+
+        tempo_trabalhado = 0
+        tempo_pausado = 0
+        usuarios_com_tempo = set()
+
+        for work_session in sessoes:
+            tempo = _calculate_work_time_in_period(
+                work_session,
+                inicio,
+                fim,
+                db,
+            )
+
+            tempo_trabalhado += tempo
+
+            tempo_pausado += _calculate_pause_time_in_period(
+                work_session,
+                inicio,
+                fim,
+                db,
+            )
+
+            if tempo > 0:
+                usuarios_com_tempo.add(
+                    work_session.usuario_id
+                )
+
+        sessoes_iniciadas = count_sessions_started_in_period(
+            db=db,
+            inicio=inicio,
+            fim=fim,
+            usuario_id=usuario_id,
+            setor_id=setor.id,
+        )
+
+        itens.append(
+            MetricsSectorItem(
+                setor_id=setor.id,
+                setor_nome=setor.nome,
+                tempo_trabalhado_segundos=tempo_trabalhado,
+                tempo_pausado_segundos=tempo_pausado,
+                sessoes_iniciadas=sessoes_iniciadas,
+                usuarios_com_tempo_trabalhado=len(
+                    usuarios_com_tempo
+                ),
+            )
+        )
+
+    itens.sort(
+        key=lambda item: str(item.setor_id)
+    )
+
+    return MetricsSectorsResponse(
+        inicio=inicio,
+        fim=fim,
+        pagina=pagina,
+        limite=limite,
+        total=total,
+        setores=itens,
     )

@@ -7,6 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.pause import Pause
+from app.models.sector import Sector
 from app.models.user import User
 from app.models.work_session import WorkSession, WorkSessionStatus
 
@@ -311,6 +312,39 @@ def list_users_with_sessions_in_period(
     return (
         query.distinct()
         .order_by(User.nome_completo.asc())
+        .all()
+    )
+
+def list_sectors_with_sessions_in_period(
+    db: Session,
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None = None,
+) -> list[Sector]:
+    """Lista setores distintos que possuem sessões no período."""
+    query = (
+        db.query(Sector)
+        .join(
+            WorkSession,
+            WorkSession.setor_id == Sector.id,
+        )
+        .filter(
+            WorkSession.entrada < fim,
+            (
+                WorkSession.saida.is_(None)
+                | (WorkSession.saida > inicio)
+            ),
+        )
+    )
+
+    if usuario_id:
+        query = query.filter(
+            WorkSession.usuario_id == usuario_id
+        )
+
+    return (
+        query.distinct()
+        .order_by(Sector.id.asc())
         .all()
     )
 

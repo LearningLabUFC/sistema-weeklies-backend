@@ -859,3 +859,123 @@ def test_admin_summary_de_todos(
 
     assert data["usuario_id"] is None
     assert data["tempo_trabalhado_segundos"] >= 0
+
+def test_metrics_summary_admin_sucesso(
+    client,
+    admin_logado,
+):
+    _admin, token = admin_logado
+
+    inicio = datetime.now(timezone.utc) - timedelta(days=1)
+    fim = datetime.now(timezone.utc) + timedelta(days=1)
+
+    response = client.get(
+        "/work-sessions/metrics/summary",
+        params={
+            "inicio": inicio.isoformat(),
+            "fim": fim.isoformat(),
+        },
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "tempo_trabalhado_segundos" in data
+    assert "tempo_pausado_segundos" in data
+    assert "sessoes_iniciadas" in data
+    assert "usuarios_com_tempo_trabalhado" in data
+
+def test_metrics_usuario_comum_retorna_403(
+    client,
+    usuario_logado,
+):
+    _usuario, token = usuario_logado
+
+    inicio = datetime.now(timezone.utc) - timedelta(days=1)
+    fim = datetime.now(timezone.utc) + timedelta(days=1)
+
+    response = client.get(
+        "/work-sessions/metrics/summary",
+        params={
+            "inicio": inicio.isoformat(),
+            "fim": fim.isoformat(),
+        },
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 403
+
+def test_metrics_periodo_invalido(
+    client,
+    admin_logado,
+):
+    _admin, token = admin_logado
+
+    agora = datetime.now(timezone.utc)
+
+    response = client.get(
+        "/work-sessions/metrics/summary",
+        params={
+            "inicio": agora.isoformat(),
+            "fim": (
+                agora - timedelta(hours=1)
+            ).isoformat(),
+        },
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 400
+
+def test_metrics_users_admin_sucesso(
+    client,
+    admin_logado,
+):
+    _admin, token = admin_logado
+
+    inicio = datetime.now(timezone.utc) - timedelta(days=1)
+    fim = datetime.now(timezone.utc) + timedelta(days=1)
+
+    response = client.get(
+        "/work-sessions/metrics/users",
+        params={
+            "inicio": inicio.isoformat(),
+            "fim": fim.isoformat(),
+        },
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "usuarios" in data
+    assert "total" in data
+    assert data["pagina"] == 1
+    assert data["limite"] == 20
+
+def test_metrics_sectors_admin_sucesso(
+    client,
+    admin_logado,
+):
+    _admin, token = admin_logado
+
+    inicio = datetime.now(timezone.utc) - timedelta(days=1)
+    fim = datetime.now(timezone.utc) + timedelta(days=1)
+
+    response = client.get(
+        "/work-sessions/metrics/sectors",
+        params={
+            "inicio": inicio.isoformat(),
+            "fim": fim.isoformat(),
+        },
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "setores" in data
+    assert "total" in data

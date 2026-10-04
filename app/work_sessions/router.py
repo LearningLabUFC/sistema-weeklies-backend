@@ -11,6 +11,9 @@ from app.deps import get_current_user
 from app.models.user import User
 from app.work_sessions.schemas import (
     CurrentWorkSessionResponse,
+    MetricsSectorsResponse,
+    MetricsSummaryResponse,
+    MetricsUsersResponse,
     PauseItem,
     StartWorkSessionRequest,
     WorkSessionDetail,
@@ -23,6 +26,9 @@ from app.work_sessions.service import (
     svc_end_pause,
     svc_end_work_session,
     svc_get_current_work_session,
+    svc_get_metrics_sectors,
+    svc_get_metrics_summary,
+    svc_get_metrics_users,
     svc_get_work_session,
     svc_get_work_session_summary,
     svc_get_work_sessions,
@@ -444,6 +450,83 @@ def get_work_sessions(
         db,
     )
 
+@router.get(
+    "/metrics/summary",
+    response_model=MetricsSummaryResponse,
+    status_code=200,
+    summary="Obter resumo das métricas administrativas",
+)
+def get_metrics_summary(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None = Query(None),
+    setor_id: UUID | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    return svc_get_metrics_summary(
+        inicio,
+        fim,
+        usuario_id,
+        setor_id,
+        current_user,
+        db,
+    )
+
+@router.get(
+    "/metrics/users",
+    response_model=MetricsUsersResponse,
+    status_code=200,
+    summary="Obter métricas agrupadas por usuário",
+)
+def get_metrics_users(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None = Query(None),
+    setor_id: UUID | None = Query(None),
+    pagina: int = Query(1, ge=1),
+    limite: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    return svc_get_metrics_users(
+        inicio,
+        fim,
+        usuario_id,
+        setor_id,
+        pagina,
+        limite,
+        current_user,
+        db,
+    )
+
+@router.get(
+    "/metrics/sectors",
+    response_model=MetricsSectorsResponse,
+    status_code=200,
+    summary="Obter métricas agrupadas por setor",
+)
+def get_metrics_sectors(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None = Query(None),
+    setor_id: UUID | None = Query(None),
+    pagina: int = Query(1, ge=1),
+    limite: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    return svc_get_metrics_sectors(
+        inicio,
+        fim,
+        usuario_id,
+        setor_id,
+        pagina,
+        limite,
+        current_user,
+        db,
+    )
+
 @router.get("/{session_id}",
             response_model=WorkSessionDetail,
             status_code=200,
@@ -482,3 +565,5 @@ def get_work_session_detail(
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_get_work_session(session_id, current_user, db)
+
+    
