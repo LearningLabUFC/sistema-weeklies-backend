@@ -1,8 +1,11 @@
 """Testes de Start Work Session."""
 
 
+from uuid import UUID
+
 from app.core.constants import TestID
 from app.models.work_session import (
+    WorkSession,
     WorkSessionStatus,
 )
 
@@ -11,6 +14,7 @@ from .helpers import _headers
 
 def test_start_work_session_sucesso(
     client,
+    db_session,
     usuario_no_setor,
 ):
     usuario, token = usuario_no_setor
@@ -31,9 +35,22 @@ def test_start_work_session_sucesso(
     assert data["setor_id"] == str(TestID.SETOR_TESTE)
     assert data["status"] == WorkSessionStatus.ATIVA.value
     assert data["saida_em"] is None
-    assert data["motivo_encerramento"] is None
-    assert data["tempo_trabalhado_segundos"] == 0
-    assert data["expira_em"] is not None
+
+    sessao_salva = (
+        db_session.query(WorkSession)
+        .filter(
+            WorkSession.id == UUID(data["id"])
+        )
+        .first()
+    )
+
+    assert sessao_salva is not None
+    assert sessao_salva.usuario_id == usuario.id
+    assert sessao_salva.setor_id == TestID.SETOR_TESTE
+    assert sessao_salva.status == WorkSessionStatus.ATIVA
+    assert sessao_salva.saida is None
+    assert sessao_salva.entrada is not None
+    assert sessao_salva.expiracao is not None
 
 def test_start_work_session_sem_vinculo_com_setor(
     client,

@@ -1,6 +1,10 @@
 """Testes de Continue Work Session."""
 
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+from app.config import settings
+from app.models.work_session import WorkSession
 
 from .helpers import _buscar_sessao, _headers
 
@@ -12,19 +16,25 @@ def test_continue_work_session_sucesso_na_janela(
 ):
     _usuario, token, sessao = sessao_ativa
 
-    work_session = _buscar_sessao(
-        db_session,
-        sessao["id"],
+    sessao_salva = (
+        db_session.query(WorkSession)
+        .filter(
+            WorkSession.id == UUID(sessao["id"])
+        )
+        .first()
     )
 
-    work_session.expiracao = (
+    assert sessao_salva is not None
+
+    sessao_salva.expiracao = (
         datetime.now(timezone.utc)
         + timedelta(minutes=5)
     )
-    db_session.commit()
-    db_session.refresh(work_session)
 
-    expiracao_anterior = work_session.expiracao
+    db_session.commit()
+    db_session.refresh(sessao_salva)
+
+    expiracao_anterior = sessao_salva.expiracao
 
     response = client.patch(
         f"/work-sessions/{sessao['id']}/continue",
@@ -33,16 +43,21 @@ def test_continue_work_session_sucesso_na_janela(
 
     assert response.status_code == 200
 
-    data = response.json()
+    db_session.refresh(sessao_salva)
 
-    expiracao_nova = datetime.fromisoformat(
-        data["expira_em"].replace(
-            "Z",
-            "+00:00",
+    expiracao_esperada = (
+        expiracao_anterior
+        + timedelta(
+            hours=settings.WORK_SESSION_EXTENSION_HOURS
         )
     )
 
-    assert expiracao_nova > expiracao_anterior
+    assert sessao_salva.expiracao == expiracao_esperada
+
+    data = response.json()
+
+    assert data["id"] == sessao["id"]
+    assert data["expira_em"] is not None
 
 def test_continue_work_session_fora_da_janela(
     client,
