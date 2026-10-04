@@ -275,11 +275,14 @@ class WorkSessionListResponse(BaseModel):
 class WorkSessionSummaryResponse(BaseModel):
     """Resposta para GET /work-sessions/summary."""
 
-    usuario_id: UUID = Field(
-        ...,
-        description="UUID do usuário consultado.",
-        examples=["22222222-2222-4222-8222-222222222222"],
-    )
+    usuario_id: UUID | None = Field(
+    None,
+    description=(
+        "UUID do usuário consultado. "
+        "Nulo quando o resumo considera todos os usuários."
+    ),
+    examples=["22222222-2222-4222-8222-222222222222"],
+)
 
     setor_id: UUID | None = Field(
         None,
