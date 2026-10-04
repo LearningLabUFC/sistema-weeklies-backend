@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     VERIFY_CODE_MAX_ATTEMPTS: int = 5
     VERIFY_CODE_COOLDOWN_MINUTES: int = 15
 
+    # ── Controle de Horas ────────────────────────────────────────
+    WORK_SESSION_LIMIT_HOURS: int = 8
+    WORK_SESSION_EXTENSION_HOURS: int = 2
+    WORK_SESSION_EXTENSION_WINDOW_MINUTES: int = 10
+
     # ── Frontend URL ───────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:5173"
 
