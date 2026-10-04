@@ -178,14 +178,14 @@ def list_work_sessions_paginated(
             WorkSession.status == status
         )
 
-    if inicio is not None:
+    if inicio is not None and fim is not None:
         query = query.filter(
-            WorkSession.saida.is_(None) |
-            WorkSession.saida > inicio
+            WorkSession.entrada < fim,
+            (
+                WorkSession.saida.is_(None)
+                | (WorkSession.saida > inicio)
+            ),
         )
-
-    if fim is not None:
-        query = query.filter(WorkSession.entrada < fim)
 
     total = query.count()
     offset = (pagina - 1) * limite

@@ -758,6 +758,20 @@ def svc_get_work_sessions(
     current_user: User,
     db: Session,
 ) -> WorkSessionListResponse:
+    if (inicio is None) != (fim is None):
+        raise BadRequestError(
+            "Os filtros inicio e fim devem ser informados juntos."
+        )
+
+    if (
+        inicio is not None
+        and fim is not None
+        and inicio >= fim
+    ):
+        raise BadRequestError(
+            "O horário inicial deve ser anterior ao horário final."
+        )
+
     if current_user.role.nome in (
         RoleName.ADMIN,
         RoleName.SUPER_ADMIN,
