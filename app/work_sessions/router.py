@@ -13,6 +13,7 @@ from app.work_sessions.schemas import (
     CurrentWorkSessionResponse,
     MetricsSectorsResponse,
     MetricsSummaryResponse,
+    MetricsTimelineResponse,
     MetricsUsersResponse,
     PauseItem,
     StartWorkSessionRequest,
@@ -28,6 +29,7 @@ from app.work_sessions.service import (
     svc_get_current_work_session,
     svc_get_metrics_sectors,
     svc_get_metrics_summary,
+    svc_get_metrics_timeline,
     svc_get_metrics_users,
     svc_get_work_session,
     svc_get_work_session_summary,
@@ -525,6 +527,47 @@ def get_metrics_sectors(
         limite,
         current_user,
         db,
+    )
+
+@router.get(
+    "/metrics/timeline",
+    response_model=MetricsTimelineResponse,
+    status_code=200,
+    summary="Obter timeline das métricas administrativas",
+    description=(
+        "Retorna o tempo trabalhado e pausado "
+        "agrupado por dia, semana ou mês."
+    ),
+)
+def get_metrics_timeline(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None = Query(
+        None,
+        description="Filtrar por usuário.",
+    ),
+    setor_id: UUID | None = Query(
+        None,
+        description="Filtrar por setor.",
+    ),
+    agrupamento: str = Query(
+        "dia",
+        description=(
+            "Agrupamento da timeline: "
+            "dia, semana ou mes."
+        ),
+    ),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    return svc_get_metrics_timeline(
+        inicio=inicio,
+        fim=fim,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+        agrupamento=agrupamento,
+        current_user=current_user,
+        db=db,
     )
 
 @router.get("/{session_id}",

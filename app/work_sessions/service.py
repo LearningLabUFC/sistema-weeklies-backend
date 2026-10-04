@@ -4,6 +4,7 @@ Service — Lógica de negócios de Controle de Horas.
 
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -43,16 +44,70 @@ from app.work_sessions.schemas import (
     MetricsSectorItem,
     MetricsSectorsResponse,
     MetricsSummaryResponse,
+    MetricsTimelineResponse,
     MetricsUserItem,
     MetricsUsersResponse,
     PauseItem,
     StartWorkSessionRequest,
+    TimelineIntervalItem,
     WorkSessionDetail,
     WorkSessionItem,
     WorkSessionListResponse,
     WorkSessionSummaryResponse,
 )
 
+
+def _get_next_timeline_boundary(
+    atual: datetime,
+    agrupamento: str,
+) -> datetime:
+    if agrupamento == "dia":
+        inicio_dia = atual.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        return inicio_dia + timedelta(days=1)
+
+    if agrupamento == "semana":
+        inicio_semana = (
+            atual - timedelta(days=atual.weekday())
+        ).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        return inicio_semana + timedelta(days=7)
+
+    if agrupamento == "mes":
+        if atual.month == 12:
+            return atual.replace(
+                year=atual.year + 1,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+
+        return atual.replace(
+            month=atual.month + 1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+    raise BadRequestError(
+        "Agrupamento inválido. "
+        "Use dia, semana ou mes."
+    )
 
 def _validate_metrics_access(
     current_user: User,
@@ -1130,4 +1185,104 @@ def svc_get_metrics_sectors(
         limite=limite,
         total=total,
         setores=itens,
+    )
+
+def svc_get_metrics_timeline(
+    inicio: datetime,
+    fim: datetime,
+    usuario_id: UUID | None,
+    setor_id: UUID | None,
+    agrupamento: str,
+    current_user: User,
+    db: Session,
+) -> MetricsTimelineResponse:
+    _validate_metrics_access(current_user)
+
+    if inicio >= fim:
+        raise BadRequestError(
+            "O horário inicial deve ser anterior ao horário final."
+        )
+
+    if agrupamento not in (
+        "dia",
+        "semana",
+        "mes",
+    ):
+        raise BadRequestError(
+            "Agrupamento inválido. "
+            "Use dia, semana ou mes."
+        )
+
+    fuso_nome = "America/Sao_Paulo"
+    fuso = ZoneInfo(fuso_nome)
+
+    inicio_local = inicio.astimezone(fuso)
+    fim_local = fim.astimezone(fuso)
+
+    sessoes = find_sessions_in_period(
+        db=db,
+        inicio=inicio,
+        fim=fim,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+    )
+
+    intervalos = []
+
+    inicio_intervalo = inicio_local
+
+    while inicio_intervalo < fim_local:
+        proximo_limite = _get_next_timeline_boundary(
+            inicio_intervalo,
+            agrupamento,
+        )
+
+        fim_intervalo = min(
+            proximo_limite,
+            fim_local,
+        )
+
+        tempo_trabalhado = 0
+        tempo_pausado = 0
+
+        for work_session in sessoes:
+            tempo_trabalhado += (
+                _calculate_work_time_in_period(
+                    work_session,
+                    inicio_intervalo,
+                    fim_intervalo,
+                    db,
+                )
+            )
+
+            tempo_pausado += (
+                _calculate_pause_time_in_period(
+                    work_session,
+                    inicio_intervalo,
+                    fim_intervalo,
+                    db,
+                )
+            )
+
+        intervalos.append(
+            TimelineIntervalItem(
+                inicio=inicio_intervalo,
+                fim=fim_intervalo,
+                tempo_trabalhado_segundos=(
+                    tempo_trabalhado
+                ),
+                tempo_pausado_segundos=(
+                    tempo_pausado
+                ),
+            )
+        )
+
+        inicio_intervalo = fim_intervalo
+
+    return MetricsTimelineResponse(
+        inicio=inicio_local,
+        fim=fim_local,
+        agrupamento=agrupamento,
+        fuso=fuso_nome,
+        intervalos=intervalos,
     )
