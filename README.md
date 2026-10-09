@@ -91,6 +91,7 @@ python run.py
 Para especificações técnicas aprofundadas, consulte os documentos na pasta [`docs/`](docs/):
 
 - 📄 [**Contrato da API (`docs/api_contract.md`)**](docs/api_contract.md): Especificação de endpoints, formato de payloads (request/response), status HTTP e interfaces TypeScript para integração com o frontend.
+- 📋 [**Módulo de Weeklies e Governança (`docs/modulo_weeklies.md`)**](docs/modulo_weeklies.md): Ciclo de vida de relatórios semanais, gestão de tarefas e rollover, automação com APScheduler, advisory locks, auditoria e sistema disciplinar de advertências.
 - 🔐 [**Módulo de Identidade e RBAC (`docs/modulo_identidade.md`)**](docs/modulo_identidade.md): Fluxo de aprovação de contas, controle de acesso baseado em papéis (`super_admin`, `admin`, `usuario`), soft deletes e recuperação de senha (OTP via Redis).
 - 🏗️ [**Infraestrutura Base (`docs/infraestrutura_base.md`)**](docs/infraestrutura_base.md): Detalhes sobre conexão com PostgreSQL (Psycopg 3), gerenciamento de sessões, cache Redis, serviço de e-mails SMTP e automação com `run.py`.
 
@@ -100,7 +101,7 @@ Para especificações técnicas aprofundadas, consulte os documentos na pasta [`
 
 Este projeto utiliza a arquitetura **Modular by Feature** (ou *Vertical Slicing*). Em vez de agrupar arquivos por tipo de tecnologia (ex: todos os controllers juntos, todos os services juntos), o código é agrupado pela **funcionalidade (feature)**. 
 
-Cada módulo da aplicação (ex: `auth`, `admin`, `users`) é independente e contém suas próprias regras de negócio, rotas e acesso a dados, dividido internamente em três camadas principais:
+Cada módulo da aplicação (ex: `auth`, `admin`, `users`, `sectors`, `weeklies`) é independente e contém suas próprias regras de negócio, rotas e acesso a dados, dividido internamente em três camadas principais:
 1. **Router (`router.py`)**: Camada Web (FastAPI). Recebe as requisições HTTP, valida payloads de entrada e repassa os dados para o Service.
 2. **Service (`service.py`)**: Camada de Negócios. Contém toda a lógica e as regras do negócio. Esta camada não sabe nada sobre HTTP e levanta exceções semânticas de domínio (`app/core/exceptions.py`).
 3. **Repository (`repository.py`)**: Camada de Dados. Centraliza todas as chamadas ao banco de dados (SQLAlchemy). O Service consome o Repository para buscar ou persistir entidades.
@@ -113,12 +114,14 @@ Cada módulo da aplicação (ex: `auth`, `admin`, `users`) é independente e con
 sistema-weeklies-backend/
 ├── alembic/              # Configurações e versões de migrações
 ├── app/
-│   ├── models/           # Modelos ORM (User, Role, Status, Course...)
-│   ├── core/             # Infraestrutura transversal (config, db, redis, security, exceptions)
+│   ├── models/           # Modelos ORM (User, Role, Status, Course, Sector, Weekly, Task...)
+│   ├── core/             # Infraestrutura transversal (config, db, redis, security, exceptions, scheduler)
 │   ├── auth/             # Módulo de Autenticação (router, service, repository, schemas)
 │   ├── admin/            # Módulo de Administração (router, service, repository, schemas)
 │   ├── users/            # Módulo de Usuários (router, service, repository, schemas)
 │   ├── courses/          # Módulo de Cursos (router, service, repository, schemas)
+│   ├── sectors/          # Módulo de Setores e membros (router, service, repository, schemas)
+│   ├── weeklies/         # Módulo de Weeklies, Tasks, Scheduler e Advertências
 │   ├── api_router.py     # Agrupador central de todas as rotas da API
 │   ├── deps.py           # Injeção de dependências (Autenticação JWT, permissões RBAC)
 │   └── main.py           # Entrypoint da aplicação FastAPI
