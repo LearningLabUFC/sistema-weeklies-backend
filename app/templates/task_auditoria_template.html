@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{TITULO_CABECALHO}}</title>
+  <style>
+    body, table, td, p, a { margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrapper { width: 100%; padding: 40px 0; background-color: #f8fafc; }
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      padding: 32px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+    .body-content { padding: 36px 40px; }
+    .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 20px; }
+    p { font-size: 15px; line-height: 1.6; color: #334155; margin-bottom: 16px; }
+    .alert-box {
+      margin: 24px 0;
+      padding: 20px;
+      background-color: #fef2f2;
+      border: 2px dashed #fca5a5;
+      border-radius: 12px;
+    }
+    .alert-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #991b1b;
+      background-color: #fee2e2;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+    }
+    .task-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+    .info-row {
+      font-size: 14px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .info-row strong {
+      color: #334155;
+    }
+    .button-container { text-align: center; margin: 32px 0 16px; }
+    .button {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 40px;
+      text-align: center;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1>{{TITULO_CABECALHO}}</h1>
+      </div>
+      <div class="body-content">
+        <p class="greeting">Prezada liderança,</p>
+        <p>{{MENSAGEM_DETALHE}}</p>
+        
+        <div class="alert-box">
+          <div class="alert-badge">{{BADGE_TEXTO}}</div>
+          <div class="task-title">{{TITULO_TASK}}</div>
+          <div class="info-row">Responsável: <strong>{{MEMBRO_NOME}}</strong></div>
+          <div class="info-row">Setor: <strong>{{SETOR_NOME}}</strong></div>
+          <div class="info-row">Prazo Original: <strong>{{PRAZO_CONCLUSAO}}</strong></div>
+        </div>
+
+        <p>Acesse o painel do setor para tomar uma das ações: estender o prazo, concluir a tarefa ou removê-la com justificativa.</p>
+
+        <div class="button-container">
+          <a href="{{FRONTEND_URL}}/weeklies" class="button">Visualizar Tarefas em Auditoria</a>
+        </div>
+      </div>
+      <div class="footer">
+        <p>Notificação automática enviada pelo {{FROM_NAME}} &bull; UFC Campus Russas</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -5,6 +5,8 @@ Utiliza pydantic-settings para carregar, validar e tipar
 todas as variáveis de ambiente definidas no arquivo .env.
 """
 
+from datetime import date
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -56,6 +58,17 @@ class Settings(BaseSettings):
 
     # ── Frontend URL ───────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:5173"
+
+    # ── Weeklies & Scheduler ──────────────────────────────────
+    ENABLE_SCHEDULER: bool = True
+    WEEKLY_TIMEZONE: str = "America/Fortaleza"
+    WEEKLY_TASK_DEFAULT_DEADLINE_DAYS: int = 14
+    WEEKLY_AUDIT_ESCALATION_DAYS: int = 7
+    WEEKLY_STRIKE_1_WEEKS: int = 2
+    WEEKLY_STRIKE_2_WEEKS: int = 3
+    WEEKLY_STRIKE_3_WEEKS: int = 4
+    WEEKLY_MARCO_IMPLANTACAO: date | None = None
+    WEEKLY_IGNORAR_JANELA: bool = False
 
     @property
     def DATABASE_URL(self) -> str:
