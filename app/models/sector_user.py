@@ -7,8 +7,17 @@ líderes de membros dentro de cada setor.
 """
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -24,6 +33,13 @@ class SectorUser(Base):
     setor_id = Column(UUID(as_uuid=True), ForeignKey("setores.id"), nullable=False)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False)
     papel = Column(String(20), nullable=False, default="membro")  # "lider" ou "membro"
+    data_ingresso = Column(Date, nullable=True)
+    criado_em = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
 
     # Relationships
     setor = relationship("Sector", back_populates="usuarios")

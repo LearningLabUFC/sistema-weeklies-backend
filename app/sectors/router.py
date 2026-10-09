@@ -17,6 +17,7 @@ from app.sectors.schemas import (
     SectorDetail,
     SectorListResponse,
     UpdateSectorRequest,
+    UserSectorItem,
 )
 from app.sectors.service import (
     svc_add_member,
@@ -24,6 +25,7 @@ from app.sectors.service import (
     svc_create_sector,
     svc_delete_sector,
     svc_get_sector_detail,
+    svc_list_my_sectors,
     svc_list_sectors,
     svc_remove_member,
     svc_update_sector,
@@ -73,6 +75,20 @@ async def list_sectors(
 
 
 @router.get(
+    "/me",
+    response_model=list[UserSectorItem],
+    status_code=200,
+    summary="Listar setores do usuário logado",
+    description="Retorna os setores aos quais o usuário autenticado está vinculado e seu papel em cada um.",
+)
+async def list_my_sectors(
+    current_user: User = Depends(require_role(["super_admin", "admin", "usuario"])),
+    db: Session = Depends(get_db),
+) -> Any:
+    return svc_list_my_sectors(current_user.id, db)
+
+
+@router.get(
     "/{sector_id}",
     response_model=SectorDetail,
     status_code=200,
@@ -81,7 +97,7 @@ async def list_sectors(
 )
 async def get_sector_detail(
     sector_id: UUID,
-    admin_user: User = Depends(require_role(["super_admin", "admin"])),
+    user: User = Depends(require_role(["super_admin", "admin", "usuario"])),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_get_sector_detail(sector_id, db)
