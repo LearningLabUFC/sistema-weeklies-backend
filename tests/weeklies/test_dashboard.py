@@ -175,6 +175,9 @@ def test_get_global_dashboard_admin_sucesso(client, db_session):
     admin = _criar_usuario_com_papel(
         db_session, "Admin Global Totais", f"AD{uuid4().hex[:6]}", global_role=RoleID.ADMIN
     )
+    _criar_usuario_com_papel(
+        db_session, "Membro Global Totais", f"MB{uuid4().hex[:6]}", papel="membro"
+    )
 
     resp = client.get("/dashboard/geral", headers=admin.headers)
     assert resp.status_code == 200
