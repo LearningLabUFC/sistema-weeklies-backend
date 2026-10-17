@@ -104,3 +104,14 @@ def remove_member_from_sector(db: Session, sector_user: SectorUser) -> None:
 def find_user_by_id(db: Session, user_id: UUID) -> User | None:
     """Busca um usuário pelo ID."""
     return db.query(User).filter(User.id == user_id).first()
+
+
+def list_user_sectors(db: Session, user_id: UUID) -> list[SectorUser]:
+    """Lista todas as associações de setores para um usuário."""
+    return (
+        db.query(SectorUser)
+        .join(Sector, SectorUser.setor_id == Sector.id)
+        .filter(SectorUser.usuario_id == user_id)
+        .order_by(Sector.nome.asc())
+        .all()
+    )

@@ -17,6 +17,7 @@ from app.api_router import api_router
 from app.core.exception_handlers import handle_app_exception
 from app.core.exceptions import AppException
 from app.core.redis.connection import encerrar_redis, iniciar_redis
+from app.core.scheduler import encerrar_scheduler, iniciar_scheduler
 from app.database import SessionLocal
 from app.work_sessions.scheduler import work_sessions_scheduler
 
@@ -29,9 +30,12 @@ origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gerencia recursos assíncronos da aplicação."""
-
+    """Gerencia recursos assíncronos: Redis e APScheduler."""
     await iniciar_redis()
+    iniciar_scheduler()
+    yield
+    encerrar_scheduler()
+    await encerrar_redis()
 
     scheduler_task = asyncio.create_task(
         work_sessions_scheduler()

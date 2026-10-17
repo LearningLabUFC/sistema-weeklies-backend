@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notificação de Advertência</title>
+  <style>
+    body, table, td, p, a { margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrapper { width: 100%; padding: 40px 0; background-color: #f8fafc; }
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      padding: 32px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+    .body-content { padding: 36px 40px; }
+    .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 20px; }
+    p { font-size: 15px; line-height: 1.6; color: #334155; margin-bottom: 16px; }
+    .alert-box {
+      text-align: center;
+      margin: 28px 0;
+      padding: 24px;
+      background-color: #fffbeb;
+      border: 2px dashed #fcd34d;
+      border-radius: 12px;
+    }
+    .alert-badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #b45309;
+      background-color: #fef3c7;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      margin-bottom: 12px;
+    }
+    .alert-details {
+      font-size: 15px;
+      color: #78350f;
+      font-weight: 500;
+    }
+    .button-container { text-align: center; margin: 32px 0 16px; }
+    .button {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 40px;
+      text-align: center;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1>⚠️ Notificação do Sistema de Weeklies</h1>
+      </div>
+      <div class="body-content">
+        <p class="greeting">Olá, {{NOME_MEMBRO}}!</p>
+        <p>Identificamos a ausência no envio do seu relatório semanal de atividades (Weekly) referente à semana <strong>{{SEMANA_REFERENCIA}}</strong> no setor <strong>{{SETOR_NOME}}</strong>.</p>
+        
+        <div class="alert-box">
+          <div class="alert-badge">{{TIPO_ADVERTENCIA}}</div>
+          <div class="alert-details">
+            Você acumulou <strong>{{SEMANAS_AUSENTES}} semanas consecutivas</strong> sem submissão de relatório.
+          </div>
+        </div>
+
+        <p>Lembramos que o envio das Weeklies é indispensável para o acompanhamento das atividades no Learning Lab. Ao submeter seu relatório na próxima janela (de sexta a segunda), o contador de ausências consecutivas é reiniciado.</p>
+
+        <div class="button-container">
+          <a href="{{FRONTEND_URL}}/weeklies" class="button">Acessar Minhas Weeklies</a>
+        </div>
+      </div>
+      <div class="footer">
+        <p>Mensagem automática enviada pelo {{FROM_NAME}} &bull; UFC Campus Russas</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -179,12 +179,59 @@ def test_get_sector_detail(client, admin_logado):
 
 
 def test_get_sector_detail_usuario(client, usuario_logado):
-    """Usuario não deve conseguir ver detalhes do setor (403)."""
+    """Usuario comum deve conseguir ver detalhes e membros do setor (200)."""
     _user, token = usuario_logado
     headers = {"Authorization": f"Bearer {token}"}
 
     res = client.get(f"/sectors/{TestID.SETOR_TESTE}", headers=headers)
 
+    assert res.status_code == 200
+    data = res.json()
+    assert data["nome"] == "Desenvolvimento Teste"
+    assert "membros" in data
+
+
+def test_get_sector_detail_sem_autenticacao(client):
+    """Requisição não autenticada deve retornar 403."""
+    res = client.get(f"/sectors/{TestID.SETOR_TESTE}")
+    assert res.status_code == 403
+
+
+def test_list_my_sectors_vazio(client, usuario_logado):
+    """Usuário sem vínculos deve receber lista vazia."""
+    _user, token = usuario_logado
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/sectors/me", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_my_sectors_vinculado(client, admin_logado, membro_extra):
+    """Usuário vinculado deve ver seus setores em /sectors/me."""
+    _admin, admin_token = admin_logado
+    membro, membro_token = membro_extra
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    membro_headers = {"Authorization": f"Bearer {membro_token}"}
+
+    res_add = client.post(
+        f"/sectors/{TestID.SETOR_TESTE}/members",
+        json={"usuario_id": str(membro.id), "papel": "membro"},
+        headers=admin_headers,
+    )
+    assert res_add.status_code == 201
+
+    res = client.get("/sectors/me", headers=membro_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["id"] == str(TestID.SETOR_TESTE)
+    assert data[0]["papel"] == "membro"
+
+
+def test_list_my_sectors_sem_autenticacao(client):
+    """Listar setores sem autenticação deve retornar 403."""
+    res = client.get("/sectors/me")
     assert res.status_code == 403
 
 
@@ -327,6 +374,22 @@ def test_add_leader_to_sector(client, admin_logado, membro_extra):
     assert res.status_code == 201
     # Mensagem dinâmica: f"Usuário adicionado ao setor como '{papel}' com sucesso."
     assert "lider" in res.json()["mensagem"]
+
+
+def test_add_super_admin_to_sector_retorna_400(client, admin_logado, super_admin_logado):
+    """Tentar adicionar super_admin a um setor deve retornar 400 Bad Request."""
+    _admin, token = admin_logado
+    super_admin, _ = super_admin_logado
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.post(
+        f"/sectors/{TestID.SETOR_TESTE}/members",
+        json={"usuario_id": str(super_admin.id), "papel": "membro"},
+        headers=headers,
+    )
+
+    assert res.status_code == 400
+    assert "super_admin" in res.json()["detail"].lower()
 
 
 # ── Testes de DELETE /sectors/{sector_id}/members/{user_id} ──
