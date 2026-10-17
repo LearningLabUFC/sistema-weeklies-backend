@@ -5,4 +5,5 @@
 # B008: Ignora chamadas de função em argumentos padrão.
 #       O FastAPI usa Depends() nos parâmetros por design (injeção de dependência).
 #       Isso é um falso positivo no contexto do FastAPI.
-ignore = ["B008"]
+# UP017: Ignora sugestão de datetime.UTC para manter compatibilidade e padrão timezone.utc.
+ignore = ["B008", "UP017"]
