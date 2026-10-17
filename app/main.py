@@ -30,12 +30,9 @@ origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gerencia recursos assíncronos: Redis e APScheduler."""
+    """Gerencia recursos assíncronos: Redis, APScheduler e work_sessions_scheduler."""
     await iniciar_redis()
     iniciar_scheduler()
-    yield
-    encerrar_scheduler()
-    await encerrar_redis()
 
     scheduler_task = asyncio.create_task(
         work_sessions_scheduler()
@@ -51,6 +48,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+        encerrar_scheduler()
         await encerrar_redis()
 
 app = FastAPI(

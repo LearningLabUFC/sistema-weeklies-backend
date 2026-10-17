@@ -10,8 +10,8 @@ from app.auth.router import router as auth_router
 from app.courses.router import router as courses_router
 from app.sectors.router import router as sectors_router
 from app.users.router import router as users_router
-from app.work_sessions.router import router as work_sessions_router
 from app.weeklies.router import router as weeklies_router
+from app.work_sessions.router import router as work_sessions_router
 
 api_router = APIRouter()
 
