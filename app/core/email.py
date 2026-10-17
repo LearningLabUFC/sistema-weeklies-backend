@@ -10,6 +10,7 @@ import html
 import logging
 import smtplib
 import urllib.parse
+from collections.abc import Callable
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -18,6 +19,15 @@ from typing import Any
 from app.config import settings
 
 logger = logging.getLogger("uvicorn.error")
+
+
+def enviar_notificacao_segura(enviar: Callable[..., None], **kwargs: Any) -> None:
+    """Isola falhas de transporte após a operação de negócio já ter sido confirmada."""
+    try:
+        enviar(**kwargs)
+    except (smtplib.SMTPException, OSError):
+        logger.exception("Falha no envio de notificação por e-mail.")
+
 
 # ── Caminhos dos templates ───────────────────────────────────
 
@@ -95,7 +105,7 @@ def enviar_email_otp(destinatario: str, codigo: str) -> None:
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -179,7 +189,7 @@ def enviar_email_advertencia(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -255,7 +265,7 @@ def enviar_email_task_auditoria(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -332,7 +342,7 @@ def enviar_email_escalonamento_auditoria(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -415,7 +425,7 @@ def enviar_email_convite_task(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -504,7 +514,7 @@ def enviar_email_resposta_convite_task(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -581,7 +591,7 @@ def enviar_email_impedimento(
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=settings.SMTP_TIMEOUT) as server:
             if settings.SMTP_USE_TLS:
                 server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
@@ -590,7 +600,6 @@ def enviar_email_impedimento(
     except smtplib.SMTPException:
         logger.exception("❌ Falha ao enviar e-mail de impedimento para %s", destinatario)
         raise
-
 
 
 

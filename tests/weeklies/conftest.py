@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,3 +12,11 @@ def weekly_clock(monkeypatch):
     now = datetime(2026, 10, 2, 12, tzinfo=FUSO_LLAB)
     monkeypatch.setattr("app.weeklies.timezone_utils.get_now_fortaleza", lambda: now)
     monkeypatch.setattr("app.weeklies.service.get_now_fortaleza", lambda: now)
+
+
+@pytest.fixture(autouse=True)
+def mock_weekly_smtp(monkeypatch):
+    """Executa os caminhos de notificação sem abrir conexões SMTP reais."""
+    smtp = MagicMock()
+    monkeypatch.setattr("app.core.email.smtplib.SMTP", smtp)
+    return smtp

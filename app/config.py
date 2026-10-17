@@ -7,6 +7,7 @@ todas as variáveis de ambiente definidas no arquivo .env.
 
 from datetime import date
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "LearningLab"
     SMTP_FROM_EMAIL: str = "noreply@learninglab.com.br"
     SMTP_USE_TLS: bool = True
+    SMTP_TIMEOUT: float = Field(default=10.0, gt=0)
 
     # ── Rate Limiting (forgot-password) ──────────────────────
     FORGOT_PASSWORD_MAX_REQUESTS: int = 3
