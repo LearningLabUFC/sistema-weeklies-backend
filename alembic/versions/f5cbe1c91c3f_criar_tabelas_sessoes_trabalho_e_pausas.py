@@ -1,7 +1,7 @@
 """criar tabelas sessoes trabalho e pausas
 
 Revision ID: f5cbe1c91c3f
-Revises: dfe50706c0ed
+Revises: b7f3a920d641
 Create Date: 2026-10-03 17:35:55.970769
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'f5cbe1c91c3f'
-down_revision: str | None = 'dfe50706c0ed'
+down_revision: str | None = 'b7f3a920d641'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -62,4 +62,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_sessoes_trabalho_usuario_id'), table_name='sessoes_trabalho')
     op.drop_index(op.f('ix_sessoes_trabalho_setor_id'), table_name='sessoes_trabalho')
     op.drop_table('sessoes_trabalho')
+    sa.Enum(name='motivoencerramento').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='worksessionstatus').drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###
