@@ -18,6 +18,7 @@ from app.core.email import (
     enviar_email_impedimento,
     enviar_email_resposta_convite_task,
     enviar_email_task_auditoria,
+    enviar_notificacao_segura,
 )
 from app.core.exceptions import (
     BadRequestError,
@@ -26,6 +27,7 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.core.schemas import MensagemResponse
+from app.models.sector import Sector
 from app.models.sector_user import SectorUser
 from app.models.task import Task
 from app.models.task_assignment import TaskAssignment
@@ -182,23 +184,34 @@ def _is_lider_do_setor(db: Session, setor_id: UUID, usuario: User | None) -> boo
 
 def _format_weekly_task_item(weekly_task: WeeklyTask) -> WeeklyTaskItemResponse:
     """Monta a resposta de um item WeeklyTask projetando dados da Task associada,
-    priorizando o snapshot histórico se o relatório já foi enviado ou aprovado.
+    priorizando o snapshot histórico se o relatório já foi enviado ou finalizado.
+    Se a weekly associada estiver em RASCUNHO ou REJEITADA (fases abertas para edição/correção),
+    projeta os dados atuais da Task, permitindo visualizar correções imediatamente.
     """
-    titulo = (
-        weekly_task.snapshot_titulo
-        if weekly_task.snapshot_titulo is not None
-        else (weekly_task.task.titulo if weekly_task.task else "")
-    )
-    descricao = (
-        weekly_task.snapshot_descricao
-        if weekly_task.snapshot_descricao is not None
-        else (weekly_task.task.descricao if weekly_task.task else None)
-    )
-    prazo = (
-        weekly_task.snapshot_prazo_conclusao
-        if weekly_task.snapshot_prazo_conclusao is not None
-        else (weekly_task.task.prazo_conclusao if weekly_task.task else None)
-    )
+    weekly_status = weekly_task.weekly.status if weekly_task.weekly else None
+    em_edicao_ou_rejeitada = weekly_status in ("RASCUNHO", "REJEITADA")
+
+    if em_edicao_ou_rejeitada and weekly_task.task:
+        titulo = weekly_task.task.titulo
+        descricao = weekly_task.task.descricao
+        prazo = weekly_task.task.prazo_conclusao
+    else:
+        titulo = (
+            weekly_task.snapshot_titulo
+            if weekly_task.snapshot_titulo is not None
+            else (weekly_task.task.titulo if weekly_task.task else "")
+        )
+        descricao = (
+            weekly_task.snapshot_descricao
+            if weekly_task.snapshot_titulo is not None
+            else (weekly_task.task.descricao if weekly_task.task else None)
+        )
+        prazo = (
+            weekly_task.snapshot_prazo_conclusao
+            if weekly_task.snapshot_titulo is not None
+            else (weekly_task.task.prazo_conclusao if weekly_task.task else None)
+        )
+
     return WeeklyTaskItemResponse(
         id=weekly_task.id,
         task_id=weekly_task.task_id,
@@ -370,8 +383,10 @@ def svc_update_task_prazo(
     """
     Atualiza o prazo de conclusão de uma task.
     Apenas líder do setor ou admin/super_admin pode alterar.
+    Usa lock exclusivo (for_update) para evitar que operações concorrentes de
+    remoção ou conclusão sejam sobrescritas inadvertidamente.
     """
-    task = find_task_by_id(db, task_id)
+    task = find_task_by_id(db, task_id, for_update=True)
     if not task:
         raise NotFoundError("Task não encontrada.")
 
@@ -392,7 +407,7 @@ def svc_update_task_prazo(
             "O prazo de tarefas de líderes em auditoria só pode ser alterado por administradores."
         )
 
-    if task.status == "REMOVIDA_PELO_LIDER":
+    if task.status == "REMOVIDA_PELO_LIDER" or task.removida_por is not None:
         raise BadRequestError("Não é possível alterar o prazo de uma task removida.")
 
     if task.status == "CONCLUIDA":
@@ -822,6 +837,7 @@ def svc_update_weekly_task(
         for email in destinatarios:
             if background_tasks:
                 background_tasks.add_task(
+                    enviar_notificacao_segura,
                     enviar_email_impedimento,
                     destinatario=email,
                     titulo_task=titulo_task,
@@ -1054,6 +1070,7 @@ def svc_evaluate_weekly(
                 "Não é possível aprovar uma weekly que não contém nenhuma tarefa."
             )
 
+    status_anterior = weekly.status
     try:
         weekly.status = body.status
         weekly.observacao_lider = obs_limpa
@@ -1063,13 +1080,15 @@ def svc_evaluate_weekly(
         # Consolidação e garantia de snapshot quando a weekly é APROVADA
         if body.status == "APROVADA":
             for weekly_task in weekly.weekly_tasks:
-                if weekly_task.task:
-                    if weekly_task.snapshot_titulo is None:
-                        weekly_task.snapshot_titulo = weekly_task.task.titulo
-                    if weekly_task.snapshot_descricao is None:
-                        weekly_task.snapshot_descricao = weekly_task.task.descricao
-                    if weekly_task.snapshot_prazo_conclusao is None:
-                        weekly_task.snapshot_prazo_conclusao = weekly_task.task.prazo_conclusao
+                if weekly_task.task and (
+                    status_anterior == "REJEITADA"
+                    or weekly_task.snapshot_titulo is None
+                ):
+                    # ENVIADA mantém o conteúdo submetido, inclusive campos nulos.
+                    # A aprovação direta de REJEITADA congela a versão corrigida.
+                    weekly_task.snapshot_titulo = weekly_task.task.titulo
+                    weekly_task.snapshot_descricao = weekly_task.task.descricao
+                    weekly_task.snapshot_prazo_conclusao = weekly_task.task.prazo_conclusao
 
             concluidas_task_ids = [
                 weekly_task.task_id
@@ -1649,8 +1668,10 @@ def svc_concluir_task_auditoria(
     current_user: User,
     db: Session,
 ) -> TaskResponse:
-    """Conclui uma tarefa que está sob auditoria (ou pendente). Apenas líderes do setor ou admin/super_admin."""
-    task = find_task_by_id(db, task_id)
+    """Conclui uma tarefa que está sob auditoria (ou pendente). Apenas líderes do setor ou admin/super_admin.
+    Usa lock exclusivo (for_update) para evitar concorrência com prorrogação ou remoção.
+    """
+    task = find_task_by_id(db, task_id, for_update=True)
     if not task:
         raise NotFoundError("Task não encontrada.")
 
@@ -1668,6 +1689,9 @@ def svc_concluir_task_auditoria(
         raise ForbiddenError(
             "Tarefas de líderes em auditoria só podem ser concluídas por administradores."
         )
+
+    if task.status == "REMOVIDA_PELO_LIDER" or task.removida_por is not None:
+        raise BadRequestError("Não é possível concluir uma task que foi removida.")
 
     if task.status not in ("EM_AUDITORIA", "PENDENTE"):
         raise BadRequestError(
@@ -1705,6 +1729,7 @@ def svc_create_task_assignment(
     body: CreateTaskAssignmentRequest,
     current_user: User,
     db: Session,
+    background_tasks: BackgroundTasks | None = None,
 ) -> TaskAssignmentResponse:
     """Envia um convite de colaboração em uma task para outro membro do mesmo setor.
 
@@ -1753,14 +1778,18 @@ def svc_create_task_assignment(
     if _is_admin(atribuido):
         raise ForbiddenError("Não é permitido atribuir tarefas a administradores ou super administradores.")
 
-    # Convidado deve possuir vínculo ativo com ao menos um setor no sistema
+    # Convidado deve possuir vínculo ativo com ao menos um setor ATIVO no sistema
     vinculo_destinatario = (
         db.query(SectorUser)
-        .filter(SectorUser.usuario_id == atribuido.id)
+        .join(Sector, SectorUser.setor_id == Sector.id)
+        .filter(
+            SectorUser.usuario_id == atribuido.id,
+            Sector.ativo.is_(True),
+        )
         .first()
     )
     if not vinculo_destinatario:
-        raise ForbiddenError("O usuário convidado não possui vínculo com nenhum setor.")
+        raise ForbiddenError("O usuário convidado não possui vínculo com nenhum setor ativo.")
 
     # Impede convites pendentes duplicados para o mesmo membro e tarefa
     pendente = find_pending_assignment_by_task_and_user(
@@ -1793,7 +1822,7 @@ def svc_create_task_assignment(
     )
     create_task_assignment(db, assignment, commit=True)
 
-    # Dispara e-mail de convite
+    # Dispara e-mail de convite fora do event loop (BackgroundTasks)
     atribuido = db.query(User).filter(User.id == body.atribuido_id).first()
     if atribuido and atribuido.email:
         prazo_str = (
@@ -1801,19 +1830,32 @@ def svc_create_task_assignment(
             if task.prazo_conclusao
             else "A definir"
         )
-        try:
-            enviar_email_convite_task(
+        setor_nome = task.setor.nome if task.setor else "Geral"
+        if background_tasks:
+            background_tasks.add_task(
+                enviar_notificacao_segura,
+                enviar_email_convite_task,
                 destinatario=atribuido.email,
                 titulo_task=task.titulo,
                 nome_solicitante=current_user.nome_completo,
                 nome_atribuido=atribuido.nome_completo,
-                setor_nome=task.setor.nome if task.setor else "Geral",
+                setor_nome=setor_nome,
                 prazo_conclusao=prazo_str,
             )
-        except (smtplib.SMTPException, OSError):
-            logger.exception(
-                "❌ Falha ao enviar e-mail de convite da task %s", task.id
-            )
+        else:
+            try:
+                enviar_email_convite_task(
+                    destinatario=atribuido.email,
+                    titulo_task=task.titulo,
+                    nome_solicitante=current_user.nome_completo,
+                    nome_atribuido=atribuido.nome_completo,
+                    setor_nome=setor_nome,
+                    prazo_conclusao=prazo_str,
+                )
+            except (smtplib.SMTPException, OSError):
+                logger.exception(
+                    "❌ Falha ao enviar e-mail de convite da task %s", task.id
+                )
 
     return _format_assignment_response(assignment)
 
@@ -1823,6 +1865,7 @@ def svc_respond_task_assignment(
     aceitar: bool,
     current_user: User,
     db: Session,
+    background_tasks: BackgroundTasks | None = None,
 ) -> TaskAssignmentResponse:
     """Responde a um convite de tarefa (ACEITAR ou RECUSAR).
 
@@ -1879,18 +1922,31 @@ def svc_respond_task_assignment(
             )
 
         # 4. Determinação do setor da cópia e revalidação do vínculo do destinatário
-        # Se o convidado pertencer ao mesmo setor da tarefa original, utiliza o setor original.
-        # Caso pertença a outro setor (colaboração intersetorial), a cópia é registrada
-        # e administrada no setor de origem do próprio convidado.
-        assoc_mesmo_setor = find_sector_user(
-            db, task_orig.setor_id, current_user.id
+        # O setor destino da tarefa clonada DEVE ser obrigatoriamente um setor ativo.
+        # Se o convidado pertencer ao mesmo setor da tarefa original e esse setor estiver ativo:
+        # utiliza o setor original.
+        # Caso contrário (colaboração intersetorial ou setor original inativado),
+        # busca um setor ativo no qual o convidado possua vínculo.
+        assoc_mesmo_setor = (
+            db.query(SectorUser)
+            .join(Sector, SectorUser.setor_id == Sector.id)
+            .filter(
+                SectorUser.setor_id == task_orig.setor_id,
+                SectorUser.usuario_id == current_user.id,
+                Sector.ativo.is_(True),
+            )
+            .first()
         )
         if assoc_mesmo_setor:
             setor_destino_id = task_orig.setor_id
         else:
             vinculo_proprio_setor = (
                 db.query(SectorUser)
-                .filter(SectorUser.usuario_id == current_user.id)
+                .join(Sector, SectorUser.setor_id == Sector.id)
+                .filter(
+                    SectorUser.usuario_id == current_user.id,
+                    Sector.ativo.is_(True),
+                )
                 .order_by(SectorUser.id.asc())
                 .first()
             )
@@ -1985,21 +2041,32 @@ def svc_respond_task_assignment(
         db.refresh(assignment)
 
         if assignment.solicitante and assignment.solicitante.email:
-            try:
-                enviar_email_resposta_convite_task(
+            setor_nome = task_orig.setor.nome if task_orig.setor else "Geral"
+            if background_tasks:
+                background_tasks.add_task(
+                    enviar_notificacao_segura,
+                    enviar_email_resposta_convite_task,
                     destinatario=assignment.solicitante.email,
                     titulo_task=task_orig.titulo,
                     nome_solicitante=assignment.solicitante.nome_completo,
                     nome_atribuido=current_user.nome_completo,
-                    setor_nome=task_orig.setor.nome
-                    if task_orig.setor
-                    else "Geral",
+                    setor_nome=setor_nome,
                     aceitou=True,
                 )
-            except (smtplib.SMTPException, OSError):
-                logger.exception(
-                    "❌ Falha ao enviar e-mail de resposta positiva de convite"
-                )
+            else:
+                try:
+                    enviar_email_resposta_convite_task(
+                        destinatario=assignment.solicitante.email,
+                        titulo_task=task_orig.titulo,
+                        nome_solicitante=assignment.solicitante.nome_completo,
+                        nome_atribuido=current_user.nome_completo,
+                        setor_nome=setor_nome,
+                        aceitou=True,
+                    )
+                except (smtplib.SMTPException, OSError):
+                    logger.exception(
+                        "❌ Falha ao enviar e-mail de resposta positiva de convite"
+                    )
     else:
         # Transição atômica condicional de status para RECUSADA
         rows_updated = (
@@ -2025,21 +2092,32 @@ def svc_respond_task_assignment(
         db.refresh(assignment)
 
         if assignment.solicitante and assignment.solicitante.email:
-            try:
-                enviar_email_resposta_convite_task(
+            setor_nome = task_orig.setor.nome if task_orig.setor else "Geral"
+            if background_tasks:
+                background_tasks.add_task(
+                    enviar_notificacao_segura,
+                    enviar_email_resposta_convite_task,
                     destinatario=assignment.solicitante.email,
                     titulo_task=task_orig.titulo,
                     nome_solicitante=assignment.solicitante.nome_completo,
                     nome_atribuido=current_user.nome_completo,
-                    setor_nome=task_orig.setor.nome
-                    if task_orig.setor
-                    else "Geral",
+                    setor_nome=setor_nome,
                     aceitou=False,
                 )
-            except (smtplib.SMTPException, OSError):
-                logger.exception(
-                    "❌ Falha ao enviar e-mail de recusa de convite"
-                )
+            else:
+                try:
+                    enviar_email_resposta_convite_task(
+                        destinatario=assignment.solicitante.email,
+                        titulo_task=task_orig.titulo,
+                        nome_solicitante=assignment.solicitante.nome_completo,
+                        nome_atribuido=current_user.nome_completo,
+                        setor_nome=setor_nome,
+                        aceitou=False,
+                    )
+                except (smtplib.SMTPException, OSError):
+                    logger.exception(
+                        "❌ Falha ao enviar e-mail de recusa de convite"
+                    )
 
     return _format_assignment_response(assignment)
 
@@ -2260,7 +2338,6 @@ def svc_get_global_dashboard(
         total_impedimentos=total_impedimentos,
         setores=setores_metrics,
     )
-
 
 
 

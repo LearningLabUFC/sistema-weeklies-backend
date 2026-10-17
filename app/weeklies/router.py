@@ -279,12 +279,15 @@ async def listar_colaboradores_elegiveis(
 async def atribuir_task(
     task_id: UUID,
     body: CreateTaskAssignmentRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(
         require_role(["super_admin", "admin", "usuario"])
     ),
     db: Session = Depends(get_db),
 ) -> Any:
-    return svc_create_task_assignment(task_id, body, current_user, db)
+    return svc_create_task_assignment(
+        task_id, body, current_user, db, background_tasks=background_tasks
+    )
 
 
 @tasks_router.patch(
@@ -295,13 +298,18 @@ async def atribuir_task(
 )
 async def aceitar_atribuicao_tasks_alias(
     assignment_id: UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(
         require_role(["super_admin", "admin", "usuario"])
     ),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_respond_task_assignment(
-        assignment_id, aceitar=True, current_user=current_user, db=db
+        assignment_id,
+        aceitar=True,
+        current_user=current_user,
+        db=db,
+        background_tasks=background_tasks,
     )
 
 
@@ -313,13 +321,18 @@ async def aceitar_atribuicao_tasks_alias(
 )
 async def recusar_atribuicao_tasks_alias(
     assignment_id: UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(
         require_role(["super_admin", "admin", "usuario"])
     ),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_respond_task_assignment(
-        assignment_id, aceitar=False, current_user=current_user, db=db
+        assignment_id,
+        aceitar=False,
+        current_user=current_user,
+        db=db,
+        background_tasks=background_tasks,
     )
 
 
@@ -685,13 +698,18 @@ atribuicoes_router = APIRouter(
 )
 async def aceitar_atribuicao(
     assignment_id: UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(
         require_role(["super_admin", "admin", "usuario"])
     ),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_respond_task_assignment(
-        assignment_id, aceitar=True, current_user=current_user, db=db
+        assignment_id,
+        aceitar=True,
+        current_user=current_user,
+        db=db,
+        background_tasks=background_tasks,
     )
 
 
@@ -704,13 +722,18 @@ async def aceitar_atribuicao(
 )
 async def recusar_atribuicao(
     assignment_id: UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(
         require_role(["super_admin", "admin", "usuario"])
     ),
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_respond_task_assignment(
-        assignment_id, aceitar=False, current_user=current_user, db=db
+        assignment_id,
+        aceitar=False,
+        current_user=current_user,
+        db=db,
+        background_tasks=background_tasks,
     )
 
 

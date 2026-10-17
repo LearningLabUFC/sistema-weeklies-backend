@@ -36,7 +36,7 @@ def find_task_by_id(
     """Busca uma task pelo ID, opcionalmente adquirindo lock exclusivo (SELECT FOR UPDATE)."""
     query = db.query(Task).filter(Task.id == task_id)
     if for_update:
-        query = query.with_for_update()
+        query = query.populate_existing().with_for_update()
     return query.first()
 
 
@@ -658,15 +658,20 @@ def find_all_active_sectors(db: Session) -> list[Sector]:
 def count_active_members_by_sector(
     db: Session, setor_id: UUID, ate_data: date | None = None
 ) -> int:
-    """Conta membros com vínculo ativo no setor informado.
+    """Conta membros com vínculo ativo no setor informado que possuem obrigatoriedade de weekly.
+    Exclui administradores e super administradores (isentos) e restringe aos papéis membro/líder em setores ativos.
     Se 'ate_data' for informada, considera apenas vínculos iniciados até aquela data.
     """
     query = (
         db.query(SectorUser)
         .join(User, User.id == SectorUser.usuario_id)
+        .join(Sector, SectorUser.setor_id == Sector.id)
         .filter(
             SectorUser.setor_id == setor_id,
             User.status_id == StatusID.ATIVO,
+            Sector.ativo.is_(True),
+            SectorUser.papel.in_(["membro", "lider"]),
+            User.global_role.notin_([RoleID.ADMIN, RoleID.SUPER_ADMIN]),
         )
     )
     if ate_data:
@@ -682,16 +687,19 @@ def count_active_members_by_sector(
     return query.count()
 
 
+
 def find_weeklies_by_sector_and_semana(
     db: Session, setor_id: UUID, semana_referencia: date
 ) -> list[Weekly]:
-    """Retorna todas as weeklies de um setor para uma semana de referência com tasks carregadas."""
+    """Relatórios de participantes não isentos, incluindo seu histórico após saída do setor."""
     return (
         db.query(Weekly)
+        .join(User, User.id == Weekly.usuario_id)
         .options(joinedload(Weekly.weekly_tasks).joinedload(WeeklyTask.task))
         .filter(
             Weekly.setor_id == setor_id,
             Weekly.semana_referencia == semana_referencia,
+            User.global_role.notin_([RoleID.ADMIN, RoleID.SUPER_ADMIN]),
         )
         .all()
     )
@@ -742,7 +750,12 @@ def find_eligible_collaborators(
       - Não possui cópia clonada da tarefa
     - Suporta busca case-insensitive por nome, email ou matrícula.
     """
-    subquery_com_setor = db.query(SectorUser.usuario_id).distinct()
+    subquery_com_setor = (
+        db.query(SectorUser.usuario_id)
+        .join(Sector, SectorUser.setor_id == Sector.id)
+        .filter(Sector.ativo.is_(True))
+        .distinct()
+    )
 
     query = (
         db.query(User)
