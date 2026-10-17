@@ -17,6 +17,8 @@ def weekly_clock(monkeypatch):
 @pytest.fixture(autouse=True)
 def mock_weekly_smtp(monkeypatch):
     """Executa os caminhos de notificação sem abrir conexões SMTP reais."""
+    monkeypatch.setattr("app.core.email.settings.SMTP_USER", "mock_ci_user")
+    monkeypatch.setattr("app.core.email.settings.SMTP_PASSWORD", "mock_ci_password")
     smtp = MagicMock()
     monkeypatch.setattr("app.core.email.smtplib.SMTP", smtp)
     return smtp
