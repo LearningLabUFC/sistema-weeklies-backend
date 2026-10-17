@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.models
 from app.config import settings
 from app.core.constants import RoleID, RoleName, StatusID, StatusName, TestID
 from app.database import Base, get_db
@@ -11,8 +12,9 @@ from app.main import app
 from app.models.course import Course
 from tests.setup_test_db import init_test_db
 
-# 1. Certificar que o DB de testes existe
+# 1. Certificar que o DB de testes existe e garantir ambiente de teste estrito
 init_test_db()
+settings.WEEKLY_IGNORAR_JANELA = False
 
 # 2. Configurar SQLAlchemy para testes
 db_url_str = str(settings.DATABASE_URL)

@@ -1,9 +1,9 @@
-"""Service — Lógica de negócios de Setores."""
-
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.constants import RoleID, RoleName
 from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.core.schemas import MensagemResponse
 from app.models.sector import Sector
@@ -19,6 +19,7 @@ from app.sectors.repository import (
     find_user_by_id,
     list_sector_members,
     list_sectors_paginated,
+    list_user_sectors,
     remove_member_from_sector,
     update_sector,
 )
@@ -31,6 +32,7 @@ from app.sectors.schemas import (
     SectorListResponse,
     SectorMemberItem,
     UpdateSectorRequest,
+    UserSectorItem,
 )
 
 PAPEIS_VALIDOS = ["lider", "membro"]
@@ -78,6 +80,20 @@ def svc_list_sectors(pagina: int, limite: int, db: Session) -> SectorListRespons
         pagina=pagina,
         limite=limite,
     )
+
+
+def svc_list_my_sectors(user_id: UUID, db: Session) -> list[UserSectorItem]:
+    associacoes = list_user_sectors(db, user_id)
+    return [
+        UserSectorItem(
+            id=assoc.setor.id,
+            nome=assoc.setor.nome,
+            descricao=assoc.setor.descricao,
+            ativo=assoc.setor.ativo,
+            papel=assoc.papel,
+        )
+        for assoc in associacoes
+    ]
 
 
 def svc_get_sector_detail(sector_id: UUID, db: Session) -> SectorDetail:
@@ -162,6 +178,11 @@ def svc_add_member(
     if not usuario:
         raise NotFoundError("Usuário não encontrado.")
 
+    if (usuario.role and usuario.role.nome == RoleName.SUPER_ADMIN) or usuario.global_role == RoleID.SUPER_ADMIN:
+        raise BadRequestError(
+            "Usuários com papel 'super_admin' não podem ser vinculados a setores.",
+        )
+
     existente = find_sector_user(db, sector_id, body.usuario_id)
     if existente:
         raise ConflictError("Este usuário já está associado a este setor.")
@@ -170,6 +191,7 @@ def svc_add_member(
         setor_id=sector_id,
         usuario_id=body.usuario_id,
         papel=body.papel,
+        data_ingresso=body.data_ingresso or datetime.now(timezone.utc).date(),
     )
     add_member_to_sector(db, associacao)
 

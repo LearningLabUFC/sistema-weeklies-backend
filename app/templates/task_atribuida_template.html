@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{TITULO_CABECALHO}}</title>
+  <style>
+    body, table, td, p, a { margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrapper { width: 100%; padding: 40px 0; background-color: #f8fafc; }
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+      padding: 32px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin: 0;
+    }
+    .body-content { padding: 36px 40px; }
+    .greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 20px; }
+    p { font-size: 15px; line-height: 1.6; color: #334155; margin-bottom: 16px; }
+    .card-box {
+      margin: 24px 0;
+      padding: 20px;
+      background-color: #f5f3ff;
+      border: 2px solid #ddd6fe;
+      border-radius: 12px;
+    }
+    .card-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #5b21b6;
+      background-color: #ede9fe;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+    }
+    .task-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e1b4b;
+      margin-bottom: 8px;
+    }
+    .info-row {
+      font-size: 14px;
+      color: #64748b;
+      margin-top: 6px;
+    }
+    .info-row strong {
+      color: #334155;
+    }
+    .button-container { text-align: center; margin: 32px 0 16px; }
+    .button {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 40px;
+      text-align: center;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h1>{{TITULO_CABECALHO}}</h1>
+      </div>
+      <div class="body-content">
+        <p class="greeting">Olá, {{DESTINATARIO_NOME}}!</p>
+        <p>{{MENSAGEM_DETALHE}}</p>
+
+        <div class="card-box">
+          <span class="card-badge">{{BADGE_TEXTO}}</span>
+          <div class="task-title">{{TITULO_TASK}}</div>
+          <div class="info-row"><strong>Setor:</strong> {{SETOR_NOME}}</div>
+          <div class="info-row"><strong>Solicitante:</strong> {{SOLICITANTE_NOME}}</div>
+          <div class="info-row"><strong>Convidado:</strong> {{CONVIDADO_NOME}}</div>
+          {{INFO_EXTRA}}
+        </div>
+
+        <p>Acesse o painel do sistema para interagir com suas tarefas e relatórios semanais.</p>
+
+        <div class="button-container">
+          <a href="{{FRONTEND_URL}}/weeklies" class="button">Acessar Painel de Weeklies</a>
+        </div>
+      </div>
+      <div class="footer">
+        <p>Esta é uma mensagem automática gerada pelo sistema <strong>{{FROM_NAME}}</strong>.</p>
+        <p>Por favor, não responda a este e-mail.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

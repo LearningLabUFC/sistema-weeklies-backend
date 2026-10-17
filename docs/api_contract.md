@@ -20,6 +20,7 @@
 9. [Endpoints — Administração e RBAC (`/admin`)](#9-endpoints--administração-e-rbac-admin)
 10. [Interfaces TypeScript (Referência para o Frontend)](#10-interfaces-typescript-referência-para-o-frontend)
 11. [Endpoints — Setores (`/sectors`)](#11-endpoints--setores-sectors)
+12. [Endpoints — Weeklies, Tasks e Governança (`/weeklies`, `/tasks`)](#12-endpoints--weeklies-tasks-e-governança)
 
 ---
 
@@ -948,3 +949,224 @@ Rotas para gestão de setores e associação N:N entre usuários e setores, com 
 * **Respostas:**
   * **200 OK**: Papel atualizado com sucesso.
   * **400 Bad Request**: Papel inválido ou o usuário já possui este papel no setor.
+
+---
+
+## 12. Endpoints — Weeklies, Tasks e Governança
+
+### 12.1. Tasks (`/tasks`)
+
+#### 12.1.1. Criar tarefa
+* **Rota:** `POST /tasks`
+* **Permissão:** `usuario`, `admin`, `super_admin`
+* **Body:**
+  ```json
+  {
+    "setor_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "titulo": "Implementar autenticação JWT",
+    "descricao": "Criar endpoints e middlewares de validação de token",
+    "prazo_conclusao": "2026-10-15"
+  }
+  ```
+* **Respostas:**
+  * **201 Created**: Tarefa criada com sucesso.
+  * **400 Bad Request**: Setor não informado, prazo anterior à data atual ou fora da janela.
+  * **403 Forbidden**: Usuário não pertence ao setor.
+
+#### 12.1.2. Listar tarefas do usuário
+* **Rota:** `GET /tasks/me`
+* **Permissão:** `usuario`, `admin`, `super_admin`
+* **Query Params:**
+  * `setor_id` *(opcional, UUID)*: Filtrar por setor.
+  * `status` *(opcional, string)*: `PENDENTE`, `CONCLUIDA`, `EM_AUDITORIA`, `REMOVIDA_PELO_LIDER`.
+  * `pagina` *(opcional, int, default: 1)*: Página atual.
+  * `limite` *(opcional, int, default: 20)*: Itens por página.
+* **Respostas:**
+  * **200 OK**: Objeto paginado com `tasks`, `total`, `pagina` e `limite`.
+
+#### 12.1.3. Atualizar tarefa
+* **Rota:** `PATCH /tasks/{task_id}`
+* **Permissão:** Responsável pela tarefa (`usuario`), `admin`, `super_admin`
+* **Body:**
+  ```json
+  {
+    "titulo": "Implementar autenticação JWT e Refresh Token",
+    "descricao": "Atualizar escopo para incluir rota de refresh",
+    "prazo_conclusao": "2026-10-18"
+  }
+  ```
+* **Respostas:**
+  * **200 OK**: Tarefa atualizada.
+  * **400 Bad Request**: Tarefa já concluída ou em estado imutável.
+  * **404 Not Found**: Tarefa não encontrada.
+
+#### 12.1.4. Prorrogar prazo de tarefa em auditoria
+* **Rota:** `PATCH /tasks/{task_id}/prazo`
+* **Permissão:** `lider` do setor, `admin`, `super_admin`
+* **Body:**
+  ```json
+  {
+    "novo_prazo": "2026-10-25",
+    "justificativa": "Atraso acordado devido a bloqueio externo"
+  }
+  ```
+* **Respostas:**
+  * **200 OK**: Tarefa atualizada e restaurada para `PENDENTE`.
+  * **400 Bad Request**: Tarefa não está em auditoria ou novo prazo inválido.
+
+#### 12.1.5. Concluir tarefa em auditoria
+* **Rota:** `PATCH /tasks/{task_id}/concluir-auditoria`
+* **Permissão:** `lider` do setor, `admin`, `super_admin`
+* **Respostas:**
+  * **200 OK**: Tarefa concluída administrativamente pelo líder.
+
+---
+
+### 12.2. Weeklies (`/weeklies`)
+
+#### 12.2.1. Obter weekly atual do setor
+* **Rota:** `GET /weeklies/current`
+* **Permissão:** `usuario`, `admin`, `super_admin`
+* **Query Params:**
+  * `setor_id` *(obrigatório, UUID)*
+* **Respostas:**
+  * **200 OK**: Objeto da weekly da semana vigente com a lista de `tasks`.
+  * **404 Not Found**: Weekly ainda não iniciada para o ciclo.
+
+#### 12.2.2. Criar weekly da semana
+* **Rota:** `POST /weeklies`
+* **Permissão:** `usuario`, `admin`, `super_admin`
+* **Body:**
+  ```json
+  {
+    "setor_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  }
+  ```
+* **Respostas:**
+  * **201 Created**: Weekly criada em `RASCUNHO` com rollover automático de pendências.
+  * **409 Conflict**: Weekly já existente para a semana de referência no setor.
+
+#### 12.2.3. Enviar weekly para avaliação
+* **Rota:** `PATCH /weeklies/{weekly_id}/send`
+* **Permissão:** Dono da weekly (`usuario`)
+* **Respostas:**
+  * **200 OK**: Status alterado para `ENVIADA`.
+  * **400 Bad Request**: Weekly sem tarefas ou fora da janela de submissão.
+
+#### 12.2.4. Reabrir weekly para edição
+* **Rota:** `PATCH /weeklies/{weekly_id}/reopen`
+* **Permissão:** Dono da weekly (`usuario`)
+* **Respostas:**
+  * **200 OK**: Status alterado de volta para `RASCUNHO`.
+  * **400 Bad Request**: Fora da janela permitida ou weekly já avaliada pelo líder.
+
+#### 12.2.5. Avaliar weekly
+* **Rota:** `PATCH /weeklies/{weekly_id}/evaluate`
+* **Permissão:** `lider` do setor, `admin`, `super_admin`
+* **Body:**
+  ```json
+  {
+    "status": "APROVADA",
+    "observacao_lider": "Excelente entrega e detalhamento dos itens."
+  }
+  ```
+  *(Status permitidos: `"APROVADA"`, `"REJEITADA"` — rejeição exige justificativa obrigatória)*
+* **Respostas:**
+  * **200 OK**: Weekly avaliada e tarefas consolidadas atomicamente.
+  * **400 Bad Request**: Status inválido ou justificativa vazia na rejeição.
+
+#### 12.2.6. Adicionar tarefa inline à weekly
+* **Rota:** `POST /weeklies/{weekly_id}/tasks`
+* **Permissão:** Dono da weekly (`usuario`)
+* **Body:**
+  ```json
+  {
+    "task_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "nova_task": {
+      "titulo": "Correção de bug de sessão",
+      "descricao": "Investigar expiração prematura do token",
+      "prazo_conclusao": "2026-10-14"
+    }
+  }
+  ```
+* **Respostas:**
+  * **201 Created**: Tarefa criada/vinculada atomicamente à weekly.
+
+#### 12.2.7. Atualizar item da weekly (Conclusão / Impedimento)
+* **Rota:** `PATCH /weeklies/{weekly_id}/tasks/{weekly_task_id}`
+* **Permissão:** Dono da weekly (`usuario`)
+* **Body:**
+  ```json
+  {
+    "concluida": true,
+    "impedimento": null
+  }
+  ```
+* **Respostas:**
+  * **200 OK**: Item atualizado.
+
+#### 12.2.8. Remover tarefa da weekly
+* **Rota:** `DELETE /weeklies/{weekly_id}/tasks/{weekly_task_id}`
+* **Permissão:** Dono da weekly (`usuario`) ou líder do setor
+* **Respostas:**
+  * **200 OK**: Vínculo removido.
+  * **400 Bad Request**: Tentativa de remover a última tarefa de uma weekly enviada/rejeitada.
+
+---
+
+### 12.3. Atribuições e Colaborações (`/atribuicoes`)
+
+#### 12.3.1. Listar minhas atribuições e convites
+* **Rota:** `GET /atribuicoes/me`
+* **Permissão:** `usuario`
+* **Respostas:**
+  * **200 OK**: Lista de convites com status `PENDENTE`, `ACEITO` ou `RECUSADO`.
+
+#### 12.3.2. Aceitar convite de colaboração
+* **Rota:** `PATCH /atribuicoes/{assignment_id}/aceitar`
+* **Permissão:** Usuário convidado (`usuario`)
+* **Respostas:**
+  * **200 OK**: Convite aceito e tarefa vinculada à weekly (se em rascunho).
+
+#### 12.3.3. Recusar convite de colaboração
+* **Rota:** `PATCH /atribuicoes/{assignment_id}/recusar`
+* **Permissão:** Usuário convidado (`usuario`)
+* **Respostas:**
+  * **200 OK**: Convite recusado.
+
+---
+
+### 12.4. Advertências (`/advertencias`)
+
+#### 12.4.1. Consultar histórico pessoal de advertências
+* **Rota:** `GET /advertencias/me`
+* **Permissão:** `usuario`
+* **Respostas:**
+  * **200 OK**: Lista com histórico de sanções (`1a_ADVERTENCIA`, `2a_ADVERTENCIA`, `DESLIGAMENTO`).
+
+#### 12.4.2. Consultar advertências do setor
+* **Rota:** `GET /advertencias/sector/{sector_id}`
+* **Permissão:** `lider` do setor, `admin`, `super_admin`
+* **Respostas:**
+  * **200 OK**: Lista consolidada de advertências dos integrantes do setor.
+
+---
+
+### 12.5. Dashboards (`/dashboard`)
+
+#### 12.5.1. Dashboard do setor
+* **Rota:** `GET /dashboard/weeklies/sector/{sector_id}`
+* **Permissão:** `lider` do setor, `admin`, `super_admin`
+* **Query Params:**
+  * `semana_referencia` *(opcional, Date)*
+* **Respostas:**
+  * **200 OK**: Objeto com `total_membros`, `weeklies_entregues`, `taxa_adesao`, `tarefas_concluidas` e lista de `ausentes`.
+
+#### 12.5.2. Dashboard global
+* **Rota:** `GET /dashboard/weeklies/global`
+* **Permissão:** `admin`, `super_admin`
+* **Query Params:**
+  * `semana_referencia` *(opcional, Date)*
+* **Respostas:**
+  * **200 OK**: Métricas gerais de todos os setores, adesão global e tarefas em auditoria.
+

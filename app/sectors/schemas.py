@@ -1,6 +1,6 @@
 """Schemas Pydantic para o módulo de Setores."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -57,6 +57,11 @@ class AddMemberRequest(BaseModel):
         "membro",
         description="Papel do usuário no setor. Valores aceitos: 'lider', 'membro'.",
         examples=["membro"],
+    )
+    data_ingresso: date | None = Field(
+        None,
+        description="Data de ingresso no setor. Se omitida, adota a data atual.",
+        examples=["2026-10-05"],
     )
 
 
@@ -186,4 +191,34 @@ class SectorListResponse(BaseModel):
         ...,
         description="Quantidade de itens por página.",
         examples=[20],
+    )
+
+
+class UserSectorItem(BaseModel):
+    """Representa um setor ao qual o usuário logado está vinculado."""
+
+    id: UUID = Field(
+        ...,
+        description="UUID do setor.",
+        examples=["4fa85f64-5717-4562-b3fc-2c963f66afa1"],
+    )
+    nome: str = Field(
+        ...,
+        description="Nome do setor.",
+        examples=["Desenvolvimento"],
+    )
+    descricao: str | None = Field(
+        None,
+        description="Descrição do setor.",
+        examples=["Setor responsável pelo desenvolvimento de software."],
+    )
+    ativo: bool = Field(
+        ...,
+        description="Se o setor está ativo.",
+        examples=[True],
+    )
+    papel: str = Field(
+        ...,
+        description="Papel do usuário no setor ('lider' ou 'membro').",
+        examples=["membro"],
     )
