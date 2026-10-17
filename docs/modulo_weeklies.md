@@ -216,13 +216,25 @@ Para suportar trabalhos em equipe no mesmo setor:
 Para evitar condições de corrida em ambientes com múltiplos workers e réplicas:
 
 ### 7.1. Protocolo de Bloqueio Pessimista (`with_for_update`)
-Todas as operações de alteração de estado da weekly adquirem bloqueio exclusivo na linha da weekly antes de validar e alterar dados:
-```python
-weekly = db.query(Weekly).filter(Weekly.id == weekly_id).with_for_update().first()
-```
-Isso impede que uma aprovação concorrente do líder colida com uma edição tardia do membro ou com a remoção da última tarefa.
+Todas as operações de alteração de estado adquirem bloqueio exclusivo nas linhas afetadas antes de validar e alterar dados:
+1. **Weeklies:** Bloqueio na linha da weekly antes de submeter, reabrir ou avaliar para serializar requisições simultâneas.
+2. **Tasks (Prorrogação e Auditoria):** `svc_update_task_prazo` e `svc_concluir_task_auditoria` adquirem lock exclusivo (`for_update=True`) na `Task`. Isso impede condições de corrida onde uma prorrogação de prazo reativaria acidentalmente uma tarefa já concluída ou removida (`REMOVIDA_PELO_LIDER`).
+3. **Atribuições (Convites):** `svc_respond_task_assignment` bloqueia a linha de `TaskAssignment` para serializar respostas ao mesmo convite. A tarefa de origem é carregada para revalidar seu status.
 
-### 7.2. Atualizações Condicionais Atômicas no Banco
+### 7.2. Projeção Dinâmica em Relatórios Abertos e Imutabilidade de Snapshots
+- **Relatórios Abertos (`RASCUNHO` e `REJEITADA`):** Durante o preenchimento ou no período de carência de 24h após rejeição, o sistema projeta os dados vivos da `Task` (`titulo`, `descricao`, `prazo_conclusao`), permitindo conferência visual imediata das correções antes e durante a reavaliação.
+- **Relatórios Enviados ou Finalizados (`ENVIADA`, `APROVADA`, `EXPIRADA`):** O snapshot é congelado no envio e preservado na aprovação de uma weekly `ENVIADA`, mesmo que o prazo da tarefa seja prorrogado depois. A aprovação direta de `REJEITADA` congela a versão corrigida; o reenvio também gera um novo snapshot. Campos nulos fazem parte do snapshot e são preservados. Registros legados sem snapshot usam os dados da tarefa como fallback.
+
+### 7.3. Notificações Desacopladas fora do Event Loop (`BackgroundTasks`)
+- Todas as notificações transacionais por e-mail (convites de tarefas, respostas de aceite/recusa e relatos de impedimentos) são disparadas fora do ciclo síncrono da requisição através de `BackgroundTasks` do FastAPI.
+- O agendamento ocorre estritamente **após** a confirmação da transação no banco de dados (`commit`).
+- Conexões SMTP possuem timeout configurável por `SMTP_TIMEOUT` (10s por padrão). Notificações em background capturam e registram falhas de SMTP e de conexão sem desfazer a operação já persistida. Não há retentativa automática de e-mails.
+
+### 7.4. Restrição Estrita a Setores Ativos em Colaborações
+- Apenas usuários vinculados a setores ativos (`Sector.ativo is True`) são listados como elegíveis ou podem receber convites de colaboração.
+- No momento do aceite, o sistema revalida o status do setor de destino: se o setor foi desativado após o convite e o membro não possuir outro setor ativo, o aceite é recusado e o convite é cancelado/expirado, impedindo a persistência de tarefas em setores inativos.
+
+### 7.5. Atualizações Condicionais Atômicas no Banco
 Na aprovação da weekly, a consolidação de conclusão das tarefas é realizada via `UPDATE` condicional direto no PostgreSQL:
 ```sql
 UPDATE tasks
@@ -231,7 +243,7 @@ WHERE id = :task_id AND status = 'PENDENTE';
 ```
 Dessa forma, caso outra transação concorrente tenha movido a tarefa para `EM_AUDITORIA` ou `REMOVIDA_PELO_LIDER`, o status anterior não é sobrescrito indevidamente.
 
-### 7.3. Atomicidade em Criação Inline
+### 7.6. Atomicidade em Criação Inline
 A criação de tarefas diretamente vinculadas à weekly (`POST /weeklies/{weekly_id}/tasks`) realiza a gravação da Task e do vínculo `WeeklyTask` em transação única com `db.flush()`. Havendo qualquer falha, o rollback é integral, sem deixar tarefas órfãs desvinculadas.
 
 ---
@@ -305,14 +317,15 @@ Toda terça-feira às 01:00, o serviço inspeciona tarefas que:
 ### 12.1. Dashboard do Setor (`GET /dashboard/weeklies/sector/{sector_id}`)
 Permite ao líder do setor acompanhar sua equipe:
 - **Resumo:** Total de membros ativos, weeklies entregues, rascunhos, weeklies pendentes de avaliação, semana de referência.
-- **Taxa de Adesão:** Percentual de membros que enviaram relatório dentro do prazo.
+- **População e Taxa de Adesão:** Percentual de membros obrigados que enviaram relatório dentro do prazo.
+  > **Nota de Governança:** Administradores e super administradores são isentos por regra do sistema: seus relatórios opcionais, inclusive rascunhos, são excluídos tanto do numerador quanto do denominador. A contagem considera membros e líderes ativos com vínculo iniciado até a data consultada, preservando também a contagem de autores não isentos com relatório histórico após seu desligamento. Os totais de tarefas pendentes e em auditoria continuam representando o setor inteiro.
 - **Tarefas:** Total de tarefas planejadas, concluídas e com impedimento no ciclo.
 - **Membros Ausentes:** Lista de membros sem envio para a semana selecionada.
 
 ### 12.2. Dashboard Global (`GET /dashboard/weeklies/global`)
 Visão macro disponível para administradores e coordenadores:
-- Total geral de membros vinculados a setores.
-- Taxa global de submissão da semana.
+- Total geral de membros obrigados vinculados a setores ativos.
+- Taxa global de submissão da semana consolidando apenas os setores e membros obrigados.
 - Tabela comparativa de adesão setor por setor.
 - Alertas de tarefas em auditoria e membros reincidentes em advertências.
 
@@ -403,6 +416,9 @@ O módulo conta com uma suíte abrangente de testes automatizados (`tests/weekli
 
 # Executar testes de concorrência e locks
 .venv/bin/pytest tests/weeklies/test_concorrencia.py -v
+
+# Regressões do PR #71, incluindo conexões PostgreSQL independentes e locks reais
+.venv/bin/pytest tests/weeklies/test_revisao_pr71.py -v
 
 # Executar testes de recuperação após paradas
 .venv/bin/pytest tests/weeklies/test_scheduler_recovery.py -v
