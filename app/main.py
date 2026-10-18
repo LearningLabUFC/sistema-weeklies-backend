@@ -3,6 +3,7 @@ Sistema de Gestão LL — Backend
 Entrypoint da aplicação FastAPI.
 """
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,7 @@ from app.core.exceptions import AppException
 from app.core.redis.connection import encerrar_redis, iniciar_redis
 from app.core.scheduler import encerrar_scheduler, iniciar_scheduler
 from app.database import SessionLocal
+from app.work_sessions.scheduler import work_sessions_scheduler
 
 load_dotenv()
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -28,13 +30,26 @@ origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Gerencia recursos assíncronos: Redis e APScheduler."""
+    """Gerencia recursos assíncronos: Redis, APScheduler e work_sessions_scheduler."""
     await iniciar_redis()
     iniciar_scheduler()
-    yield
-    encerrar_scheduler()
-    await encerrar_redis()
 
+    scheduler_task = asyncio.create_task(
+        work_sessions_scheduler()
+    )
+
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
+
+        encerrar_scheduler()
+        await encerrar_redis()
 
 app = FastAPI(
     title="Sistema de Gestão LL",
