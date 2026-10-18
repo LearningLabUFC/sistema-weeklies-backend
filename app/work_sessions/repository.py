@@ -64,17 +64,6 @@ def update_work_session(
 # ── Pausas ───────────────────────────────────────────────────
 
 
-def create_pause(
-    db: Session,
-    pause: Pause,
-) -> Pause:
-    """Persiste uma nova pausa no banco."""
-    db.add(pause)
-    db.commit()
-    db.refresh(pause)
-    return pause
-
-
 def find_pause_by_id(
     db: Session,
     pause_id: UUID,
@@ -111,34 +100,12 @@ def list_pauses_by_session_id(
     )
 
 
-def update_pause(
-    db: Session,
-    pause: Pause,
-) -> Pause:
-    """Persiste as alterações feitas na pausa."""
-    db.commit()
-    db.refresh(pause)
-    return pause
-
-def commit_started_pause(
+def commit_pause_transition(
     db: Session,
     work_session: WorkSession,
     pause: Pause,
 ) -> None:
-    db.add(work_session)
-    db.add(pause)
-
-    db.commit()
-
-    db.refresh(work_session)
-    db.refresh(pause)
-
-
-def commit_finished_pause(
-    db: Session,
-    work_session: WorkSession,
-    pause: Pause,
-) -> None:
+    """Persiste o início ou o fim de uma pausa junto com o novo status da sessão."""
     db.add(work_session)
     db.add(pause)
 
@@ -348,27 +315,12 @@ def list_sectors_with_sessions_in_period(
         .all()
     )
 
-def commit_expired_work_session(
+def commit_session_closure(
     db: Session,
     work_session: WorkSession,
     pause: Pause | None = None,
 ) -> None:
-    if pause is not None:
-        db.add(pause)
-
-    db.add(work_session)
-    db.commit()
-
-    db.refresh(work_session)
-
-    if pause is not None:
-        db.refresh(pause)
-
-def commit_finished_work_session(
-    db: Session,
-    work_session: WorkSession,
-    pause: Pause | None = None,
-) -> None:
+    """Persiste o encerramento da sessão (manual ou por expiração) e a pausa fechada, se houver."""
     if pause is not None:
         db.add(pause)
 

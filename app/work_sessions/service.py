@@ -21,10 +21,8 @@ from app.models.user import User
 from app.models.work_session import MotivoEncerramento, WorkSession, WorkSessionStatus
 from app.sectors.repository import find_sector_by_id, find_sector_user
 from app.work_sessions.repository import (
-    commit_expired_work_session,
-    commit_finished_pause,
-    commit_finished_work_session,
-    commit_started_pause,
+    commit_pause_transition,
+    commit_session_closure,
     count_sessions_started_in_period,
     create_work_session,
     find_expired_open_sessions,
@@ -309,7 +307,7 @@ def svc_process_expired_sessions(db: Session) -> None:
             MotivoEncerramento.LIMITE_ATINGIDO
         )
 
-        commit_expired_work_session(
+        commit_session_closure(
             db,
             work_session,
             pausa,
@@ -401,11 +399,11 @@ def svc_start_pause(
         inicio=agora,
     )
 
-    commit_started_pause(
+    commit_pause_transition(
         db,
         work_session,
         nova_pausa,
-    )   
+    )
 
     return PauseItem(
         id=nova_pausa.id,
@@ -460,7 +458,7 @@ def svc_end_pause(
     pausa_aberta.fim = agora
     work_session.status = WorkSessionStatus.ATIVA
 
-    commit_finished_pause(
+    commit_pause_transition(
         db,
         work_session,
         pausa_aberta,
@@ -521,7 +519,7 @@ def svc_end_work_session(
             MotivoEncerramento.LIMITE_ATINGIDO
         )
 
-        commit_expired_work_session(
+        commit_session_closure(
             db,
             work_session,
             pausa,
@@ -547,7 +545,7 @@ def svc_end_work_session(
             MotivoEncerramento.MANUAL
         )
 
-        commit_finished_work_session(
+        commit_session_closure(
             db,
             work_session,
             pausa,
@@ -751,6 +749,7 @@ def svc_get_work_session(
 def svc_get_work_sessions(
     usuario_id: UUID | None,
     setor_id: UUID | None,
+    status: WorkSessionStatus | None,
     inicio: datetime | None,
     fim: datetime | None,
     pagina: int,
@@ -811,6 +810,7 @@ def svc_get_work_sessions(
         limite=limite,
         usuario_id=usuario_consulta,
         setor_id=setor_id,
+        status=status,
         inicio=inicio,
         fim=fim,
     )

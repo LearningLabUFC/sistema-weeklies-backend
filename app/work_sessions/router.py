@@ -9,6 +9,7 @@ from app.core.schemas import ErroPadrao
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
+from app.models.work_session import WorkSessionStatus
 from app.work_sessions.schemas import (
     CurrentWorkSessionResponse,
     MetricsSectorsResponse,
@@ -407,7 +408,7 @@ def get_work_session_summary(
     summary="Listar sessões de trabalho",
     description=(
         "Lista o histórico de sessões de trabalho com paginação "
-        "e filtros opcionais por usuário, setor e período."
+        "e filtros opcionais por usuário, setor, status e período."
     ),
 )
 def get_work_sessions(
@@ -418,6 +419,10 @@ def get_work_sessions(
     setor_id: UUID | None = Query(
         None,
         description="Filtrar por setor.",
+    ),
+    status: WorkSessionStatus | None = Query(
+        None,
+        description="Filtrar por status da sessão.",
     ),
     inicio: datetime | None = Query(
         None,
@@ -442,14 +447,15 @@ def get_work_sessions(
     db: Session = Depends(get_db),
 ) -> Any:
     return svc_get_work_sessions(
-        usuario_id,
-        setor_id,
-        inicio,
-        fim,
-        pagina,
-        limite,
-        current_user,
-        db,
+        usuario_id=usuario_id,
+        setor_id=setor_id,
+        status=status,
+        inicio=inicio,
+        fim=fim,
+        pagina=pagina,
+        limite=limite,
+        current_user=current_user,
+        db=db,
     )
 
 @router.get(

@@ -243,6 +243,7 @@ Lista sessões com paginação e filtros.
 |---|---|---|---|
 | `usuario_id` | UUID | `null` | Filtra por usuário |
 | `setor_id` | UUID | `null` | Filtra por setor |
+| `status` | Enum | `null` | Filtra por status (`ATIVA`, `EM_PAUSA`, `FINALIZADA`, `EXPIRADA_SISTEMA`) |
 | `inicio` | datetime | `null` | Início do período |
 | `fim` | datetime | `null` | Fim do período |
 | `pagina` | int | `1` | Página atual |
