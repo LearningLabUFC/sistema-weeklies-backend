@@ -3,18 +3,63 @@ Sistema de Gestão LL — Backend
 Entrypoint da aplicação FastAPI.
 """
 
-from fastapi import FastAPI
+import asyncio
+import os
+from contextlib import asynccontextmanager
 
-from app.routers import auth
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+
+from app.api_router import api_router
+from app.core.exception_handlers import handle_app_exception
+from app.core.exceptions import AppException
+from app.core.redis.connection import encerrar_redis, iniciar_redis
+from app.core.scheduler import encerrar_scheduler, iniciar_scheduler
+from app.database import SessionLocal
+from app.work_sessions.scheduler import work_sessions_scheduler
+
+load_dotenv()
+origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+
+
+# ── Lifecycle (startup / shutdown) ───────────────────────────
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia recursos assíncronos: Redis, APScheduler e work_sessions_scheduler."""
+    await iniciar_redis()
+    iniciar_scheduler()
+
+    scheduler_task = asyncio.create_task(
+        work_sessions_scheduler()
+    )
+
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
+
+        encerrar_scheduler()
+        await encerrar_redis()
 
 app = FastAPI(
     title="Sistema de Gestão LL",
     description=(
         "API RESTful avançada para o sistema de Gestão LL "
-        "(UFC — Campus Russas). Gerenciamento completo de alunos, "
+        "(UFC — Campus Russas). Gerenciamento completo de usuarios, "
         "horas, weeklies, reuniões, setores e dashboard analítico."
     ),
     version="1.0.0",
+    lifespan=lifespan,
     contact={
         "name": "LearningLab",
         "email": "learninglab@ufc.br",
@@ -25,19 +70,47 @@ app = FastAPI(
     },
 )
 
+# ── Configuração de CORS ─────────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Exception Handlers ───────────────────────────────────────
+
+app.add_exception_handler(AppException, handle_app_exception)
+
 # ── Routers ──────────────────────────────────────────────────
 
-app.include_router(auth.router)
+app.include_router(api_router)
 
 
 # ── Health check ─────────────────────────────────────────────
 
+
 @app.get(
-    "/health",
+    "/api/health",
     tags=["Health"],
-    summary="Verifica se a API está no ar",
-    response_description="Status da aplicação",
+    summary="Verifica se a API e o banco de dados estão no ar",
+    response_description="Status da aplicação e conexão com o banco",
 )
 async def health_check():
-    """Retorna o status atual da aplicação."""
-    return {"status": "healthy"}
+    """Retorna o status atual da aplicação e valida a conexão com o banco de dados."""
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "error": str(e),
+            },
+        )
