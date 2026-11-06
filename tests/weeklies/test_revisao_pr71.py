@@ -448,8 +448,8 @@ def test_p2_destinatario_com_apenas_setor_inativo_e_revalidacao_no_aceite(client
 # ── P2: Dashboard Exclui Administradores Isentos ───────────────
 
 
-def test_p2_dashboard_exclui_administradores_isentos_da_taxa_de_submissao(client, db_session):
-    """Setor com 1 membro, 1 líder e 1 administrador: os 2 obrigados entregam e taxa é 100%."""
+def test_p2_dashboard_inclui_administradores_vinculados_na_taxa_de_submissao(client, db_session):
+    """Setor com 1 membro, 1 líder e 1 administrador vinculado: os 3 são obrigados."""
     novo_setor = Sector(id=uuid4(), nome=f"Setor Dash Taxa {uuid4().hex[:4]}", ativo=True)
     db_session.add(novo_setor)
     db_session.commit()
@@ -464,8 +464,8 @@ def test_p2_dashboard_exclui_administradores_isentos_da_taxa_de_submissao(client
     _lider, h_lider = _criar_user_e_token(
         db_session, f"l_taxa_{uuid4().hex[:6]}@t.com", f"LT{uuid4().hex[:6]}", papel="lider", setor_id=novo_setor.id
     )
-    # 1 Administrador vinculado ao setor (isento de weekly)
-    _admin, _ = _criar_user_e_token(
+    # 1 Administrador vinculado ao setor (obrigado a prestar contas do setor)
+    _admin, h_admin = _criar_user_e_token(
         db_session,
         f"a_taxa_{uuid4().hex[:6]}@t.com",
         f"AT{uuid4().hex[:6]}",
@@ -503,6 +503,21 @@ def test_p2_dashboard_exclui_administradores_isentos_da_taxa_de_submissao(client
     res_env_l = client.patch(f"/weeklies/{wl_id}/enviar", headers=h_lider)
     assert res_env_l.status_code == 200
 
+    # Admin também cria e envia weekly
+    res_wa = client.post(
+        "/weeklies",
+        headers=h_admin,
+        json={"setor_id": str(novo_setor.id), "semana_referencia": str(semana_ref)},
+    )
+    wa_id = res_wa.json()["id"]
+    client.post(
+        f"/weeklies/{wa_id}/tasks",
+        headers=h_admin,
+        json={"titulo": "Task Admin", "prazo_conclusao": str(semana_ref + timedelta(days=4))},
+    )
+    res_env_a = client.patch(f"/weeklies/{wa_id}/enviar", headers=h_admin)
+    assert res_env_a.status_code == 200
+
     # Consulta dashboard do setor
     res_dash = client.get(
         f"/dashboard/setor/{novo_setor.id}?semana_referencia={semana_ref}",
@@ -511,9 +526,9 @@ def test_p2_dashboard_exclui_administradores_isentos_da_taxa_de_submissao(client
     assert res_dash.status_code == 200
     dados = res_dash.json()
 
-    # Denominador deve ser 2 (apenas os 2 participantes obrigados: membro + líder)
-    assert dados["total_membros"] == 2
-    assert dados["weeklies_enviadas"] == 2
+    # Denominador deve ser 3 (os 3 participantes obrigados: membro + líder + admin vinculado)
+    assert dados["total_membros"] == 3
+    assert dados["weeklies_enviadas"] == 3
     assert dados["taxa_submissao_percentual"] == 100.0
 
 
@@ -547,20 +562,20 @@ def test_aprovacao_preserva_snapshot_do_envio(client, db_session, prazo_original
         assert item["descricao"] is None
 
 
-@pytest.mark.parametrize("status_admin", [None, "RASCUNHO", "ENVIADA"])
+@pytest.mark.parametrize("status_super_admin", [None, "RASCUNHO", "ENVIADA"])
 @pytest.mark.parametrize("com_obrigados", [False, True])
-def test_dashboard_ignora_relatorios_opcionais_de_admin(
-    client, db_session, status_admin, com_obrigados
+def test_dashboard_ignora_relatorios_opcionais_de_super_admin(
+    client, db_session, status_super_admin, com_obrigados
 ):
     setor = Sector(nome=f"Dashboard {uuid4().hex}")
     db_session.add(setor)
     db_session.commit()
-    admin, headers = _criar_user_e_token(
-        db_session, "optional-admin@test.com", "124001", global_role=RoleID.ADMIN, setor_id=setor.id
+    super_admin, headers = _criar_user_e_token(
+        db_session, "optional-super-admin@test.com", "124001", global_role=RoleID.SUPER_ADMIN, setor_id=setor.id
     )
     semana = obter_semana_referencia()
-    if status_admin:
-        db_session.add(Weekly(usuario_id=admin.id, setor_id=setor.id, semana_referencia=semana, status=status_admin))
+    if status_super_admin:
+        db_session.add(Weekly(usuario_id=super_admin.id, setor_id=setor.id, semana_referencia=semana, status=status_super_admin))
     if com_obrigados:
         for i, status in enumerate(["ENVIADA", "RASCUNHO"]):
             membro, _ = _criar_user_e_token(db_session, f"obrigado{i}@test.com", f"12400{i+2}", setor_id=setor.id)
