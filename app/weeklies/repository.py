@@ -351,8 +351,10 @@ def find_sector_user(db: Session, setor_id: UUID, usuario_id: UUID) -> SectorUse
 
 
 def find_active_sector_members(db: Session) -> list[SectorUser]:
-    """Retorna todos os vínculos de membros com status ATIVO em setores ativos,
-    excluindo administradores e super administradores da obrigação semanal.
+    """Retorna todos os vínculos de membros com status ATIVO em setores ativos sujeitos à obrigação semanal.
+
+    - Usuários comuns e administradores vinculados a setores ativos (como membros ou líderes) são incluídos.
+    - Super administradores são excluídos da obrigação semanal.
     """
     from app.core.constants import RoleID, StatusID
     from app.models.sector import Sector
@@ -366,7 +368,7 @@ def find_active_sector_members(db: Session) -> list[SectorUser]:
             User.status_id == StatusID.ATIVO,
             Sector.ativo.is_(True),
             SectorUser.papel.in_(["membro", "lider"]),
-            User.global_role.notin_([RoleID.ADMIN, RoleID.SUPER_ADMIN]),
+            User.global_role != RoleID.SUPER_ADMIN,
         )
         .all()
     )
@@ -659,7 +661,8 @@ def count_active_members_by_sector(
     db: Session, setor_id: UUID, ate_data: date | None = None
 ) -> int:
     """Conta membros com vínculo ativo no setor informado que possuem obrigatoriedade de weekly.
-    Exclui administradores e super administradores (isentos) e restringe aos papéis membro/líder em setores ativos.
+    Inclui membros e líderes ativos (inclusive administradores vinculados ao setor).
+    Super administradores são excluídos.
     Se 'ate_data' for informada, considera apenas vínculos iniciados até aquela data.
     """
     query = (
@@ -671,7 +674,7 @@ def count_active_members_by_sector(
             User.status_id == StatusID.ATIVO,
             Sector.ativo.is_(True),
             SectorUser.papel.in_(["membro", "lider"]),
-            User.global_role.notin_([RoleID.ADMIN, RoleID.SUPER_ADMIN]),
+            User.global_role != RoleID.SUPER_ADMIN,
         )
     )
     if ate_data:
@@ -699,7 +702,7 @@ def find_weeklies_by_sector_and_semana(
         .filter(
             Weekly.setor_id == setor_id,
             Weekly.semana_referencia == semana_referencia,
-            User.global_role.notin_([RoleID.ADMIN, RoleID.SUPER_ADMIN]),
+            User.global_role != RoleID.SUPER_ADMIN,
         )
         .all()
     )
@@ -741,9 +744,9 @@ def find_eligible_collaborators(
 
     Critérios de elegibilidade:
     - Status ativo
-    - Não é super_admin nem admin (cargos de gestão/coordenação não recebem tarefas)
+    - Não é super_admin (administradores são elegíveis desde que vinculados a setores ativos)
     - Não é o próprio usuário solicitante
-    - Possui vínculo ativo com ao menos um setor
+    - Possui vínculo ativo com ao menos um setor ativo
     - Se informado task_id:
       - Não é o proprietário da tarefa
       - Não possui atribuição PENDENTE para a tarefa
@@ -761,7 +764,7 @@ def find_eligible_collaborators(
         db.query(User)
         .filter(
             User.status_id == StatusID.ATIVO,
-            User.global_role.notin_([RoleID.SUPER_ADMIN, RoleID.ADMIN]),
+            User.global_role != RoleID.SUPER_ADMIN,
             User.id != solicitante_id,
             User.id.in_(subquery_com_setor),
         )

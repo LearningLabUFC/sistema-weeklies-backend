@@ -1774,9 +1774,9 @@ def svc_create_task_assignment(
     if not atribuido or atribuido.status_id != StatusID.ATIVO:
         raise NotFoundError("Usuário a ser atribuído não foi encontrado ou está inativo.")
 
-    # Impede atribuição a administradores e super administradores
-    if _is_admin(atribuido):
-        raise ForbiddenError("Não é permitido atribuir tarefas a administradores ou super administradores.")
+    # Impede atribuição a super administradores
+    if atribuido.global_role == RoleID.SUPER_ADMIN:
+        raise ForbiddenError("Não é permitido atribuir tarefas a super administradores.")
 
     # Convidado deve possuir vínculo ativo com ao menos um setor ATIVO no sistema
     vinculo_destinatario = (
@@ -1912,13 +1912,13 @@ def svc_respond_task_assignment(
                 f"A tarefa original não está mais disponível para colaboração (status atual: '{task_orig.status}')."
             )
 
-        # 3. Revalidação do cargo do destinatário (não pode ser admin/super_admin)
-        if _is_admin(current_user):
+        # 3. Revalidação do cargo do destinatário (super administradores nunca recebem atribuições)
+        if current_user.global_role == RoleID.SUPER_ADMIN:
             assignment.status = "EXPIRADA"
             assignment.respondido_em = agora_utc
             commit_changes(db)
             raise ForbiddenError(
-                "Administradores não podem receber atribuições de tarefas."
+                "Super administradores não podem receber atribuições de tarefas."
             )
 
         # 4. Determinação do setor da cópia e revalidação do vínculo do destinatário
