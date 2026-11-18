@@ -157,6 +157,10 @@ class AddWeeklyTaskRequest(BaseModel):
         None,
         description="Prazo de conclusão da task (se criada inline).",
     )
+    concluida: bool = Field(
+        False,
+        description="Se a task vinculada/criada já inicia marcada como concluída na weekly (ex: entrega avulsa realizada).",
+    )
 
     @field_validator("titulo")
     @classmethod
