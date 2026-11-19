@@ -362,10 +362,10 @@ def test_respeito_ao_marco_de_implantacao(db_session, monkeypatch):
     assert consecutivas == 2  # 2026-10-12 e 2026-10-05
 
 
-def test_administrador_em_setor_nao_recebe_advertencias(db_session):
+def test_administrador_membro_em_setor_recebe_advertencias(db_session):
     """
-    Garante que administradores globais vinculados a setores (como membros ou líderes)
-    não são incluídos na população sujeita à obrigação semanal e não recebem advertências.
+    Garante que administradores globais vinculados a setores (como membros)
+    são incluídos na população sujeita à obrigação semanal e recebem advertências caso não enviem suas weeklies.
     """
     admin_membro = _criar_cenario_usuario(
         db_session,
@@ -382,7 +382,78 @@ def test_administrador_em_setor_nao_recebe_advertencias(db_session):
     svc_processar_advertencias_ausencias(db_session, semana_referencia=W3)
     svc_processar_advertencias_ausencias(db_session, semana_referencia=W4)
 
-    # Nenhuma advertência deve ter sido gerada para o admin
     adverts = db_session.query(WeeklyWarning).filter(WeeklyWarning.usuario_id == admin_id).all()
+    assert len(adverts) == 3
+    tipos = [a.tipo for a in adverts]
+    assert "1a_ADVERTENCIA" in tipos
+    assert "2a_ADVERTENCIA" in tipos
+    assert "DESLIGAMENTO" in tipos
+
+
+def test_administrador_sem_setor_nao_recebe_advertencias(db_session):
+    """
+    Garante que administradores que NÃO possuem vínculo com setores ativos
+    não são incluídos na população sujeita à obrigação semanal e não recebem advertências.
+    """
+    admin = User(
+        nome_completo="Admin Sem Setor",
+        email=f"semsetor_{uuid4().hex[:6]}@test.com",
+        senha_hash="hash",
+        matricula=f"SS_{uuid4().hex[:6]}",
+        data_nascimento=date(2000, 1, 1),
+        data_ingresso=W1,
+        curso_id=TestID.CURSO_TESTE,
+        status_id=StatusID.ATIVO,
+        global_role=RoleID.ADMIN,
+    )
+    db_session.add(admin)
+    db_session.commit()
+
+    svc_processar_advertencias_ausencias(db_session, semana_referencia=W2)
+    svc_processar_advertencias_ausencias(db_session, semana_referencia=W3)
+    svc_processar_advertencias_ausencias(db_session, semana_referencia=W4)
+
+    adverts = db_session.query(WeeklyWarning).filter(WeeklyWarning.usuario_id == admin.id).all()
     assert len(adverts) == 0
+
+
+def test_administrador_lider_em_setor_recebe_advertencias(db_session):
+    """
+    Garante que administradores globais vinculados como LÍDERES em setores ativos
+    são incluídos na obrigação semanal e recebem advertências caso não enviem suas weeklies.
+    """
+    admin_lider = _criar_cenario_usuario(
+        db_session,
+        "Admin Vinculado Como Lider",
+        f"ADML_{uuid4().hex[:6]}",
+        papel="lider",
+        data_ingresso=W1,
+        global_role=RoleID.ADMIN,
+    )
+    admin_lider_id = admin_lider.user.id
+
+    # W1: 1ª ausência consecutiva (tolerância inicial, sem advertência formal ainda)
+    res_w1 = svc_processar_advertencias_ausencias(db_session, semana_referencia=W1)
+    assert any(d["usuario_id"] == str(admin_lider_id) for d in res_w1["detalhes_ausentes"])
+    advs_w1 = db_session.query(WeeklyWarning).filter(WeeklyWarning.usuario_id == admin_lider_id).all()
+    assert len(advs_w1) == 0
+
+    # W2: 2ª ausência consecutiva (gera 1ª advertência)
+    res_w2 = svc_processar_advertencias_ausencias(db_session, semana_referencia=W2)
+    assert any(d["usuario_id"] == str(admin_lider_id) for d in res_w2["detalhes"])
+    advs_w2 = db_session.query(WeeklyWarning).filter(WeeklyWarning.usuario_id == admin_lider_id).all()
+    assert len(advs_w2) == 1
+    assert advs_w2[0].tipo == "1a_ADVERTENCIA"
+    assert advs_w2[0].semanas_ausentes == 2
+
+    # W3: 3ª ausência consecutiva (gera 2ª advertência)
+    res_w3 = svc_processar_advertencias_ausencias(db_session, semana_referencia=W3)
+    assert any(d["usuario_id"] == str(admin_lider_id) for d in res_w3["detalhes"])
+    adv_w3 = db_session.query(WeeklyWarning).filter(
+        WeeklyWarning.usuario_id == admin_lider_id, WeeklyWarning.semana_referencia == W3
+    ).first()
+    assert adv_w3 is not None
+    assert adv_w3.tipo == "2a_ADVERTENCIA"
+    assert adv_w3.semanas_ausentes == 3
+
 

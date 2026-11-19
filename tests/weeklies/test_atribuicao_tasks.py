@@ -573,10 +573,49 @@ def test_aceite_bloqueado_apos_remocao_do_destinatario_do_setor(client, db_sessi
     assert assignment.status == "EXPIRADA"
 
 
-def test_aceite_bloqueado_apos_promocao_a_admin(client, db_session):
-    """Destinatário que foi promovido a admin após o envio do convite não pode aceitá-lo."""
+def test_aceite_bloqueado_apos_promocao_a_super_admin(client, db_session):
+    """Destinatário que foi promovido a super admin após o envio do convite não pode aceitá-lo."""
     membro_a = _criar_usuario_com_papel(db_session, "Membro A Orig2", f"A{uuid4().hex[:6]}")
-    membro_b = _criar_usuario_com_papel(db_session, "Membro B Promovido", f"B{uuid4().hex[:6]}")
+    membro_b = _criar_usuario_com_papel(db_session, "Membro B Promovido SA", f"B{uuid4().hex[:6]}")
+
+    task = Task(
+        usuario_id=membro_a.user.id,
+        setor_id=TestID.SETOR_TESTE,
+        titulo="Task para Promovido a Super Admin",
+        status="PENDENTE",
+    )
+    db_session.add(task)
+    db_session.commit()
+
+    assignment = TaskAssignment(
+        task_id=task.id,
+        solicitante_id=membro_a.user.id,
+        atribuido_id=membro_b.user.id,
+        status="PENDENTE",
+    )
+    db_session.add(assignment)
+    db_session.commit()
+
+    # Promove o destinatário a super admin global
+    user_b = db_session.query(User).filter(User.id == membro_b.user.id).first()
+    user_b.global_role = RoleID.SUPER_ADMIN
+    db_session.commit()
+
+    resp = client.patch(
+        f"/atribuicoes/{assignment.id}/aceitar",
+        headers=membro_b.headers,
+    )
+    assert resp.status_code == 403
+    assert "Super administradores não podem receber atribuições" in resp.json()["detail"]
+
+    db_session.refresh(assignment)
+    assert assignment.status == "EXPIRADA"
+
+
+def test_aceite_permitido_para_administrador_com_setor(client, db_session):
+    """Destinatário que é admin global mas possui vínculo com setor ativo pode aceitar o convite."""
+    membro_a = _criar_usuario_com_papel(db_session, "Membro A OrigAdmin", f"A{uuid4().hex[:6]}")
+    membro_b = _criar_usuario_com_papel(db_session, "Membro B Promovido Admin", f"B{uuid4().hex[:6]}")
 
     task = Task(
         usuario_id=membro_a.user.id,
@@ -596,7 +635,7 @@ def test_aceite_bloqueado_apos_promocao_a_admin(client, db_session):
     db_session.add(assignment)
     db_session.commit()
 
-    # Promove o destinatário a admin global
+    # Promove o destinatário a admin global mantendo o vínculo com o setor
     user_b = db_session.query(User).filter(User.id == membro_b.user.id).first()
     user_b.global_role = RoleID.ADMIN
     db_session.commit()
@@ -605,11 +644,9 @@ def test_aceite_bloqueado_apos_promocao_a_admin(client, db_session):
         f"/atribuicoes/{assignment.id}/aceitar",
         headers=membro_b.headers,
     )
-    assert resp.status_code == 403
-    assert "Administradores não podem receber atribuições" in resp.json()["detail"]
-
+    assert resp.status_code == 200
     db_session.refresh(assignment)
-    assert assignment.status == "EXPIRADA"
+    assert assignment.status == "ACEITA"
 
 
 def test_aceite_bloqueado_apos_remocao_da_task_original(client, db_session):
@@ -853,25 +890,53 @@ def test_colaboracao_entre_setores_registra_copia_no_setor_do_convidado(client, 
 
 
 def test_listar_colaboradores_elegiveis_sucesso(client, db_session):
-    """Garante que a lista retorna membros ativos, exclui admins e o próprio solicitante."""
+    """Garante que a lista retorna membros ativos e admins vinculados, excluindo solicitante, super admin e admin sem setor."""
     solicitante = _criar_usuario_com_papel(db_session, "Solicitante", "SOL01")
     colega_ativo = _criar_usuario_com_papel(db_session, "Colega Ativo", "COL01")
-    admin = _criar_usuario_com_papel(
-        db_session, "Admin Global", "ADM01", global_role=RoleID.ADMIN
+    admin_vinculado = _criar_usuario_com_papel(
+        db_session, "Admin Vinculado", "ADM01", global_role=RoleID.ADMIN
     )
+    admin_sem_setor = User(
+        nome_completo="Admin Sem Setor",
+        email=f"adm_sem_{uuid4().hex[:6]}@test.com",
+        senha_hash="hash",
+        matricula=f"AS_{uuid4().hex[:4]}",
+        data_nascimento=date(2000, 1, 1),
+        data_ingresso=date(2026, 1, 1),
+        curso_id=TestID.CURSO_TESTE,
+        status_id=StatusID.ATIVO,
+        global_role=RoleID.ADMIN,
+    )
+    db_session.add(admin_sem_setor)
+    super_admin = User(
+        nome_completo="Super Admin",
+        email=f"sa_{uuid4().hex[:6]}@test.com",
+        senha_hash="hash",
+        matricula=f"SA_{uuid4().hex[:4]}",
+        data_nascimento=date(2000, 1, 1),
+        data_ingresso=date(2026, 1, 1),
+        curso_id=TestID.CURSO_TESTE,
+        status_id=StatusID.ATIVO,
+        global_role=RoleID.SUPER_ADMIN,
+    )
+    db_session.add(super_admin)
+    db_session.commit()
 
     resp = client.get("/tasks/colaboradores-elegiveis", headers=solicitante.headers)
     assert resp.status_code == 200
     data = resp.json()
     assert "colaboradores" in data
-    assert data["total"] >= 1
+    assert data["total"] >= 2
 
     ids = [c["id"] for c in data["colaboradores"]]
     assert str(colega_ativo.user.id) in ids
+    # Admin vinculado ao setor DEVE aparecer na lista de elegíveis
+    assert str(admin_vinculado.user.id) in ids
     # Não deve incluir o próprio solicitante
     assert str(solicitante.user.id) not in ids
-    # Não deve incluir administradores
-    assert str(admin.user.id) not in ids
+    # Não deve incluir administradores sem setor nem super administradores
+    assert str(admin_sem_setor.id) not in ids
+    assert str(super_admin.id) not in ids
 
     # Verifica estrutura dos campos
     item = next(c for c in data["colaboradores"] if c["id"] == str(colega_ativo.user.id))

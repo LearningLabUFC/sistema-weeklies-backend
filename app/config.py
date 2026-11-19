@@ -21,11 +21,12 @@ class Settings(BaseSettings):
     )
 
     # ── Banco de dados (PostgreSQL) ──────────────────────────
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5433
+    DATABASE_URL_ENV: str | None = Field(default=None, validation_alias="DATABASE_URL")
 
     # ── Autenticação JWT ─────────────────────────────────────
     SECRET_KEY: str
@@ -37,6 +38,9 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    REDIS_PASSWORD: str | None = None
+    REDIS_SSL: bool = False
+    REDIS_URL_ENV: str | None = Field(default=None, validation_alias="REDIS_URL")
     OTP_EXPIRE_MINUTES: int = 15
 
     # ── E-mail (SMTP — Gmail App Password) ───────────────────
@@ -79,7 +83,14 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        """Monta a URL de conexão com o PostgreSQL a partir das variáveis individuais."""
+        """Monta a URL de conexão com o PostgreSQL a partir das variáveis individuais ou retorna DATABASE_URL se definida."""
+        if self.DATABASE_URL_ENV:
+            url = self.DATABASE_URL_ENV
+            if url.startswith("postgresql://"):
+                return url.replace("postgresql://", "postgresql+psycopg://", 1)
+            if url.startswith("postgres://"):
+                return url.replace("postgres://", "postgresql+psycopg://", 1)
+            return url
         return (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -87,8 +98,12 @@ class Settings(BaseSettings):
 
     @property
     def REDIS_URL(self) -> str:
-        """Monta a URL de conexão com o Redis."""
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        """Monta a URL de conexão com o Redis (ou retorna REDIS_URL se definida no ambiente)."""
+        if self.REDIS_URL_ENV:
+            return self.REDIS_URL_ENV
+        scheme = "rediss" if self.REDIS_SSL else "redis"
+        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"{scheme}://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
 
 settings = Settings()
