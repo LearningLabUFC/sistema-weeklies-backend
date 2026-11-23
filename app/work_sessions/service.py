@@ -313,36 +313,56 @@ def svc_process_expired_sessions(db: Session) -> None:
             pausa,
         )
 
+
 def svc_start_work_session(
     body: StartWorkSessionRequest,
     current_user: User,
     db: Session,
 ) -> WorkSessionItem:
-    if current_user.role.nome in (
-        RoleName.ADMIN,
-        RoleName.SUPER_ADMIN,
-    ):
+    # Super administradores não podem registrar ponto.
+    if current_user.role.nome == RoleName.SUPER_ADMIN:
         raise ForbiddenError(
-            "Administradores não podem iniciar sessão de trabalho."
+            "Super administradores não podem iniciar sessão de trabalho."
         )
+
     setor = find_sector_by_id(db, body.setor_id)
+
     if setor is None:
         raise NotFoundError("Setor não encontrado.")
+
     if not setor.ativo:
         raise ConflictError("O setor informado não está ativo.")
-    vinculo = find_sector_user(db, setor.id, current_user.id) 
+
+    vinculo = find_sector_user(db, setor.id, current_user.id)
+
     if vinculo is None:
-        raise ForbiddenError("Você não tem permissão para iniciar uma sessão neste setor.")
+        raise ForbiddenError(
+            "Você não tem permissão para iniciar uma sessão neste setor."
+        )
+
+    # Administradores só podem bater ponto nos setores que lideram.
+    if (
+        current_user.role.nome == RoleName.ADMIN
+        and vinculo.papel != "lider"
+    ):
+        raise ForbiddenError(
+            "Administradores só podem registrar ponto em setores que lideram."
+        )
+
     sessao_aberta = find_open_session_by_user_id(db, current_user.id)
+
     if sessao_aberta:
         raise ConflictError("Você já possui uma sessão ativa.")
-    
+
     agora = datetime.now(timezone.utc)
+
     work_session = WorkSession(
         usuario_id=current_user.id,
         setor_id=body.setor_id,
         entrada=agora,
-        expiracao=agora + timedelta(hours=settings.WORK_SESSION_LIMIT_HOURS),
+        expiracao=agora + timedelta(
+            hours=settings.WORK_SESSION_LIMIT_HOURS
+        ),
         status=WorkSessionStatus.ATIVA,
     )
 
@@ -359,6 +379,7 @@ def svc_start_work_session(
         motivo_encerramento=work_session.motivo_encerramento,
         tempo_trabalhado_segundos=0,
     )
+
 
 def svc_start_pause(
     session_id: UUID,
