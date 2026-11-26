@@ -255,7 +255,7 @@ def test_scheduler_e_idempotente(
 # ── Papéis globais + papel no setor ─────────────────────────
 
 
-def test_admin_lider_continua_sem_poder_bater_ponto(
+def test_admin_lider_pode_bater_ponto(
     client,
     db_session,
     admin_logado,
@@ -276,7 +276,10 @@ def test_admin_lider_continua_sem_poder_bater_ponto(
         headers=_headers(token),
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert response.json()["usuario_id"] == str(admin.id)
+    assert response.json()["setor_id"] == str(TestID.SETOR_TESTE)
+    assert response.json()["status"] == WorkSessionStatus.ATIVA.value
 
     sessao = (
         db_session.query(WorkSession)
@@ -284,7 +287,60 @@ def test_admin_lider_continua_sem_poder_bater_ponto(
         .first()
     )
 
-    assert sessao is None
+    assert sessao is not None
+    assert sessao.setor_id == TestID.SETOR_TESTE
+    assert sessao.status == WorkSessionStatus.ATIVA
+
+
+def test_admin_lider_pode_pausar_retornar_e_encerrar_ponto(
+    client,
+    db_session,
+    admin_logado,
+):
+    admin, token = admin_logado
+    _adicionar_ao_setor(db_session, admin, "lider")
+    headers = _headers(token)
+
+    inicio = client.post(
+        "/work-sessions",
+        json={"setor_id": str(TestID.SETOR_TESTE)},
+        headers=headers,
+    )
+    assert inicio.status_code == 201
+    sessao_id = inicio.json()["id"]
+
+    pausa = client.post(
+        f"/work-sessions/{sessao_id}/pauses",
+        headers=headers,
+    )
+    assert pausa.status_code == 201
+    pausa_id = pausa.json()["id"]
+    assert _buscar_sessao(db_session, sessao_id).status == (
+        WorkSessionStatus.EM_PAUSA
+    )
+
+    retorno = client.patch(
+        f"/work-sessions/{sessao_id}/pauses/{pausa_id}/end",
+        headers=headers,
+    )
+    assert retorno.status_code == 200
+    assert _buscar_sessao(db_session, sessao_id).status == (
+        WorkSessionStatus.ATIVA
+    )
+
+    encerramento = client.patch(
+        f"/work-sessions/{sessao_id}/end",
+        headers=headers,
+    )
+    assert encerramento.status_code == 200
+    assert encerramento.json()["status"] == WorkSessionStatus.FINALIZADA.value
+    assert encerramento.json()["motivo_encerramento"] == (
+        MotivoEncerramento.MANUAL.value
+    )
+
+    sessao_salva = _buscar_sessao(db_session, sessao_id)
+    assert sessao_salva.usuario_id == admin.id
+    assert sessao_salva.saida is not None
 
 
 def test_admin_lider_continua_podendo_consultar_sessoes(

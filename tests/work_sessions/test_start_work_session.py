@@ -9,7 +9,7 @@ from app.models.work_session import (
     WorkSessionStatus,
 )
 
-from .helpers import _headers
+from .helpers import _adicionar_ao_setor, _headers
 
 
 def test_start_work_session_sucesso(
@@ -103,7 +103,7 @@ def test_start_work_session_sem_token(client):
 
     assert response.status_code == 403
 
-def test_admin_nao_pode_bater_ponto(
+def test_admin_sem_vinculo_nao_pode_bater_ponto(
     client,
     admin_logado,
 ):
@@ -118,6 +118,64 @@ def test_admin_nao_pode_bater_ponto(
     )
 
     assert response.status_code == 403
+
+def test_admin_membro_pode_bater_ponto(
+    client,
+    db_session,
+    admin_logado,
+):
+    admin, token = admin_logado
+    _adicionar_ao_setor(db_session, admin, "membro")
+
+    response = client.post(
+        "/work-sessions",
+        json={"setor_id": str(TestID.SETOR_TESTE)},
+        headers=_headers(token),
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["usuario_id"] == str(admin.id)
+    assert data["setor_id"] == str(TestID.SETOR_TESTE)
+    assert data["status"] == WorkSessionStatus.ATIVA.value
+
+    sessao = (
+        db_session.query(WorkSession)
+        .filter(WorkSession.usuario_id == admin.id)
+        .first()
+    )
+    assert sessao is not None
+    assert sessao.setor_id == TestID.SETOR_TESTE
+    assert sessao.status == WorkSessionStatus.ATIVA
+
+
+def test_admin_lider_nao_pode_iniciar_segunda_sessao(
+    client,
+    db_session,
+    admin_logado,
+):
+    admin, token = admin_logado
+    _adicionar_ao_setor(db_session, admin, "lider")
+
+    primeira = client.post(
+        "/work-sessions",
+        json={"setor_id": str(TestID.SETOR_TESTE)},
+        headers=_headers(token),
+    )
+    segunda = client.post(
+        "/work-sessions",
+        json={"setor_id": str(TestID.SETOR_TESTE)},
+        headers=_headers(token),
+    )
+
+    assert primeira.status_code == 201
+    assert segunda.status_code == 409
+    assert (
+        db_session.query(WorkSession)
+        .filter(WorkSession.usuario_id == admin.id)
+        .count()
+    ) == 1
+
 
 def test_super_admin_nao_pode_bater_ponto(
     client,
