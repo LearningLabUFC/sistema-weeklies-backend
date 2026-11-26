@@ -119,7 +119,7 @@ def test_admin_sem_vinculo_nao_pode_bater_ponto(
 
     assert response.status_code == 403
 
-def test_admin_membro_nao_pode_bater_ponto(
+def test_admin_membro_pode_bater_ponto(
     client,
     db_session,
     admin_logado,
@@ -133,12 +133,20 @@ def test_admin_membro_nao_pode_bater_ponto(
         headers=_headers(token),
     )
 
-    assert response.status_code == 403
-    assert (
+    assert response.status_code == 201
+    data = response.json()
+    assert data["usuario_id"] == str(admin.id)
+    assert data["setor_id"] == str(TestID.SETOR_TESTE)
+    assert data["status"] == WorkSessionStatus.ATIVA.value
+
+    sessao = (
         db_session.query(WorkSession)
         .filter(WorkSession.usuario_id == admin.id)
         .first()
-    ) is None
+    )
+    assert sessao is not None
+    assert sessao.setor_id == TestID.SETOR_TESTE
+    assert sessao.status == WorkSessionStatus.ATIVA
 
 
 def test_admin_lider_nao_pode_iniciar_segunda_sessao(

@@ -340,15 +340,6 @@ def svc_start_work_session(
             "Você não tem permissão para iniciar uma sessão neste setor."
         )
 
-    # Administradores só podem bater ponto nos setores que lideram.
-    if (
-        current_user.role.nome == RoleName.ADMIN
-        and vinculo.papel != "lider"
-    ):
-        raise ForbiddenError(
-            "Administradores só podem registrar ponto em setores que lideram."
-        )
-
     sessao_aberta = find_open_session_by_user_id(db, current_user.id)
 
     if sessao_aberta:
