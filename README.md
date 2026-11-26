@@ -140,6 +140,9 @@ sistema-weeklies-backend/
 | Comando                                        | Descrição                          |
 | ---------------------------------------------- | ---------------------------------- |
 | `python run.py`                                | Sobe infra Docker, migrações e API |
+| `python scripts/seed_dev.py`                   | Cria personas e setores de mock (ambiente local) |
+| `python scripts/seed_dev.py --reset`           | Restaura as personas de mock ao estado inicial |
+| `python scripts/seed_dev.py --clean`           | Remove apenas os usuários e vínculos de mock |
 | `uvicorn app.main:app --reload`                | Servidor de desenvolvimento isolado|
 | `alembic revision --autogenerate -m "msg"`     | Gerar nova migration               |
 | `alembic upgrade head`                         | Aplicar migrações pendentes        |
